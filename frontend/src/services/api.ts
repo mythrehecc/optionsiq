@@ -120,7 +120,9 @@ export const statementsApi = {
     const form = new FormData();
     form.append("file", file);
     form.append("replace", String(replace));
-    return apiClient.post("/statements/upload", form);
+    return apiClient.post("/statements/upload", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
   },
   list: () => apiClient.get("/statements/"),
   trades: (id: string) => apiClient.get(`/statements/${id}/trades`),
