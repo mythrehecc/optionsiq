@@ -27,7 +27,7 @@ def create_app():
     jwt.init_app(app)
     bcrypt.init_app(app)
     migrate.init_app(app, db)
-    CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
+    CORS(app)
 
     # Prevent 308 redirect loops through the Next.js proxy
     app.url_map.strict_slashes = False
