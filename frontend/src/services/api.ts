@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE = "/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
 
 const apiClient = axios.create({
   baseURL: API_BASE,
@@ -38,6 +38,18 @@ apiClient.interceptors.response.use(
       originalRequest?.url?.includes("/auth/refresh") ||
       originalRequest?.url?.includes("/auth/signin") ||
       originalRequest?.url?.includes("/auth/signup");
+
+    // Handle 422 JWT invalid signature errors from flask_jwt_extended
+    if (error.response?.status === 422 && error.response?.data?.msg) {
+      const msg = String(error.response.data.msg).toLowerCase();
+      if (msg.includes("signature") || msg.includes("token") || msg.includes("segments")) {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        localStorage.removeItem("user");
+        if (typeof window !== "undefined") window.location.href = "/signin";
+        return Promise.reject(error);
+      }
+    }
 
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
@@ -108,9 +120,7 @@ export const statementsApi = {
     const form = new FormData();
     form.append("file", file);
     form.append("replace", String(replace));
-    return apiClient.post("/statements/upload", form, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    return apiClient.post("/statements/upload", form);
   },
   list: () => apiClient.get("/statements/"),
   trades: (id: string) => apiClient.get(`/statements/${id}/trades`),

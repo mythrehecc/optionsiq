@@ -41,4 +41,9 @@ def create_app():
     app.register_blueprint(statements_bp, url_prefix="/statements")
     app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
 
+    # Ensure tables are created automatically in production
+    with app.app_context():
+        from app.models import User, Statement, Trade, MonthlySummary
+        db.create_all()
+
     return app
