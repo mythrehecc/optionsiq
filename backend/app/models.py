@@ -47,6 +47,8 @@ class Statement(db.Model):
     uploaded_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     trade_count = db.Column(db.Integer, default=0)
     filename = db.Column(db.String(500), nullable=True)
+    buying_power_total = db.Column(db.Numeric(15, 2), nullable=True)
+    buying_power_remaining = db.Column(db.Numeric(15, 2), nullable=True)
 
     trades = db.relationship("Trade", backref="statement", lazy=True, cascade="all, delete-orphan")
 
@@ -62,6 +64,8 @@ class Statement(db.Model):
             "uploaded_at": self.uploaded_at.isoformat() if self.uploaded_at else None,
             "trade_count": self.trade_count,
             "filename": self.filename,
+            "buying_power_total": float(self.buying_power_total) if self.buying_power_total else None,
+            "buying_power_remaining": float(self.buying_power_remaining) if self.buying_power_remaining else None,
         }
 
 
@@ -106,6 +110,23 @@ class Trade(db.Model):
         }
 
 
+class Order(db.Model):
+    __tablename__ = "orders"
+
+    order_id = db.Column(db.String(36), primary_key=True, default=gen_uuid)
+    statement_id = db.Column(db.String(36), db.ForeignKey("statements.statement_id"), nullable=False)
+    user_id = db.Column(db.String(36), db.ForeignKey("users.user_id"), nullable=False)
+    order_date = db.Column(db.Date, nullable=True)
+    status = db.Column(db.String(20), nullable=True)
+
+    def to_dict(self):
+        return {
+            "order_id": self.order_id,
+            "order_date": self.order_date.isoformat() if self.order_date else None,
+            "status": self.status,
+        }
+
+
 class MonthlySummary(db.Model):
     __tablename__ = "monthly_summaries"
 
@@ -121,6 +142,11 @@ class MonthlySummary(db.Model):
     total_fills = db.Column(db.Integer, default=0)
     ending_balance = db.Column(db.Numeric(15, 2), nullable=True)
     assignment_count = db.Column(db.Integer, default=0)
+    total_options_placed = db.Column(db.Integer, default=0)
+    total_active_orders = db.Column(db.Integer, default=0)
+    total_cancelled_orders = db.Column(db.Integer, default=0)
+    total_closed_orders = db.Column(db.Integer, default=0)
+    commissions_paid = db.Column(db.Numeric(10, 2), default=0)
 
     __table_args__ = (
         db.Index("ix_mom_user_account_month", "user_id", "account_id", "month_year"),
@@ -139,4 +165,9 @@ class MonthlySummary(db.Model):
             "total_fills": self.total_fills,
             "ending_balance": float(self.ending_balance) if self.ending_balance else None,
             "assignment_count": self.assignment_count,
+            "total_options_placed": self.total_options_placed,
+            "total_active_orders": self.total_active_orders,
+            "total_cancelled_orders": self.total_cancelled_orders,
+            "total_closed_orders": self.total_closed_orders,
+            "commissions_paid": float(self.commissions_paid),
         }

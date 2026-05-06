@@ -3,7 +3,7 @@ import Providers from "./Providers";
 import "@/index.css";
 
 export const metadata: Metadata = {
-  title: "OptionsIQ – Options Trading Analytics",
+  title: "Opencap – Options Trading Analytics",
   description: "Advanced ThinkorSwim options analytics – P&L, risk alerts, and month-over-month insights.",
 };
 

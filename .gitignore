@@ -1,3 +1,6 @@
 # Root environment variables
 .env
 .env.*
+
+# Python virtual environment
+venv312/

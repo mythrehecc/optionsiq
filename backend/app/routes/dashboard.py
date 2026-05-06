@@ -67,6 +67,7 @@ def get_summary():
     return jsonify({
         "summary": {
             "cash_balance": current_balance,
+            "opening_cash_balance": prior_balance,
             "balance_delta": balance_delta,
             "net_pnl": net_pnl,
             "premium_collected": premium,
@@ -76,6 +77,8 @@ def get_summary():
             "period_start": latest_stmt.statement_start.isoformat(),
             "period_end": latest_stmt.statement_end.isoformat(),
             "account_id": latest_stmt.account_id,
+            "buying_power_total": float(latest_stmt.buying_power_total) if latest_stmt.buying_power_total else None,
+            "buying_power_remaining": float(latest_stmt.buying_power_remaining) if latest_stmt.buying_power_remaining else None,
         }
     }), 200
 
@@ -145,7 +148,9 @@ def get_mom():
         trades = Trade.query.filter_by(statement_id=statement_id, user_id=user_id).all()
         monthly = defaultdict(lambda: {
             "premium_collected": 0.0, "losses_realized": 0.0, "assignment_costs": 0.0,
-            "total_fees": 0.0, "net_pnl": 0.0, "total_fills": 0, "ending_balance": None, "assignment_count": 0
+            "total_fees": 0.0, "net_pnl": 0.0, "total_fills": 0, "ending_balance": None, "assignment_count": 0,
+            "total_options_placed": 0, "total_active_orders": 0, "total_cancelled_orders": 0, "total_closed_orders": 0,
+            "commissions_paid": 0.0
         })
         for t in trades:
             key = date(t.trade_date.year, t.trade_date.month, 1)
@@ -153,7 +158,8 @@ def get_mom():
             if to_date and key.isoformat() > to_date: continue
             m = monthly[key]
             amount = float(t.gross_amount)
-            fees = float(t.commissions or 0) + float(t.misc_fees or 0)
+            comm = float(t.commissions or 0)
+            fees = comm + float(t.misc_fees or 0)
             if t.trade_type == "EXP":
                 m["assignment_costs"] += amount
                 m["assignment_count"] += 1
@@ -162,9 +168,28 @@ def get_mom():
             else:
                 m["losses_realized"] += amount
             m["total_fees"] += fees
+            m["commissions_paid"] += comm
             m["total_fills"] += 1
             if t.running_balance is not None:
                 m["ending_balance"] = float(t.running_balance)
+        
+        # Aggregated orders for this statement
+        from app.models import Order
+        orders = Order.query.filter_by(statement_id=statement_id, user_id=user_id).all()
+        for o in orders:
+            if not o.order_date: continue
+            key = date(o.order_date.year, o.order_date.month, 1)
+            if from_date and key.isoformat() < from_date: continue
+            if to_date and key.isoformat() > to_date: continue
+            m = monthly[key]
+            m["total_options_placed"] += 1
+            status = (o.status or "").upper()
+            if "CANCEL" in status:
+                m["total_cancelled_orders"] += 1
+            elif "FILL" in status:
+                m["total_closed_orders"] += 1
+            else:
+                m["total_active_orders"] += 1
         
         result = []
         for key in sorted(monthly.keys()):

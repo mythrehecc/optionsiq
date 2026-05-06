@@ -156,3 +156,9 @@ export const dashboardApi = {
       params: { account_id: params?.accountId || undefined, statement_id: params?.statementId || undefined },
     }),
 };
+
+export const predictionsApi = {
+  tickers: () => apiClient.get("/predictions/tickers"),
+  modelInfo: () => apiClient.get("/predictions/model-info"),
+  predict: (ticker: string) => apiClient.get("/predictions/predict", { params: { ticker } }),
+};

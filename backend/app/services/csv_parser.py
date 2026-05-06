@@ -152,13 +152,68 @@ def parse_thinkorswim_csv(file_path: str) -> dict:
             elif len(dates) == 1:
                 end_date = _parse_date(dates[0])
 
-    # Find trades section
+    # Find sections
+    summary_section_start = _find_section(lines, "Account Summary")
+    orders_section_start = _find_section(lines, "Account Order History")
     trades_section_start = -1
     for keyword in ["Account Trade History", "Trade History", "Trades", "Transaction History"]:
         idx = _find_section(lines, keyword)
         if idx >= 0:
             trades_section_start = idx
             break
+
+    buying_power_total = None
+    buying_power_remaining = None
+    order_stats = {"active": 0, "cancelled": 0, "filled": 0, "total": 0}
+
+    # Parse Account Summary if available
+    if summary_section_start >= 0:
+        for i in range(summary_section_start + 1, min(summary_section_start + 20, len(lines))):
+            line = lines[i]
+            if "buying power" in line.lower():
+                amounts = re.findall(r"\$?\s*\(?[\d,]+\.\d{2}\)?", line)
+                if amounts:
+                    val = _parse_amount(amounts[0])
+                    if not buying_power_total:
+                        buying_power_total = val
+                    buying_power_remaining = val
+
+    # Parse Account Order History if available
+    if orders_section_start >= 0:
+        header_idx = -1
+        for i in range(orders_section_start, min(orders_section_start + 10, len(lines))):
+            if any(col in lines[i].lower() for col in ["status", "type", "ticker"]):
+                header_idx = i
+                break
+        
+        if header_idx >= 0:
+            order_lines = []
+            for i in range(header_idx, len(lines)):
+                if i > header_idx and (lines[i].strip() == "" or any(kw in lines[i] for kw in ["Account", "Section", "***"])):
+                    break
+                order_lines.append(lines[i])
+            
+            if order_lines:
+                try:
+                    orders = []
+                    reader = csv.DictReader(io.StringIO("\n".join(order_lines)))
+                    for row in reader:
+                        status = str(next((v for k, v in row.items() if "status" in k.lower()), "")).upper()
+                        order_date = _parse_date(next((v for k, v in row.items() if "date" in k.lower()), ""))
+                        orders.append({
+                            "status": status,
+                            "date": order_date
+                        })
+                        order_stats["total"] += 1
+                        if "CANCEL" in status:
+                            order_stats["cancelled"] += 1
+                        elif "FILL" in status:
+                            order_stats["filled"] += 1
+                        else:
+                            order_stats["active"] += 1
+                    order_stats["orders"] = orders # store for MoM aggregation
+                except:
+                    pass
 
     trades: list = []
 
@@ -171,97 +226,103 @@ def parse_thinkorswim_csv(file_path: str) -> dict:
                 break
 
         if header_idx >= 0:
-            section_text = "\n".join(lines[header_idx:])
-            try:
-                reader = csv.DictReader(io.StringIO(section_text))
-                # Normalize column names
-                raw_rows = list(reader)
-                if not raw_rows:
+            trade_lines = []
+            for i in range(header_idx, len(lines)):
+                if i > header_idx and (lines[i].strip() == "" or any(kw in lines[i] for kw in ["Account", "Section", "***"])):
+                    break
+                trade_lines.append(lines[i])
+
+            if trade_lines:
+                try:
+                    reader = csv.DictReader(io.StringIO("\n".join(trade_lines)))
+                    # Normalize column names
+                    raw_rows = list(reader)
+                    if not raw_rows:
+                        pass
+                    else:
+                        # Map normalized column names
+                        sample = raw_rows[0]
+                        cols = {k.strip().lower().replace(" ", "_"): k for k in sample.keys()}
+
+                        date_col = next((cols[c] for c in cols if "date" in c), None)
+                        desc_col = next((cols[c] for c in cols if "description" in c or "trade" in c), None)
+                        amount_col = next((cols[c] for c in cols if "amount" in c or "net" in c), None)
+                        balance_col = next((cols[c] for c in cols if "balance" in c or "running" in c), None)
+                        commission_col = next((cols[c] for c in cols if "commission" in c), None)
+                        misc_col = next((cols[c] for c in cols if "misc" in c or "fee" in c), None)
+                        contracts_col = next((cols[c] for c in cols if "qty" in c or "quantity" in c or "contracts" in c), None)
+
+                        all_dates = []
+                        running_balance = None
+
+                        for row in raw_rows:
+                            trade_date = _parse_date(row.get(date_col, "")) if date_col else None
+                            if not trade_date:
+                                continue
+
+                            all_dates.append(trade_date)
+                            description = str(row.get(desc_col, "")) if desc_col else ""
+                            gross = _parse_amount(row.get(amount_col, 0)) if amount_col else 0.0
+                            commission = _parse_amount(row.get(commission_col, 0)) if commission_col else 0.0
+                            misc_fee = _parse_amount(row.get(misc_col, 0)) if misc_col else 0.0
+
+                            # Capture this row's running balance BEFORE updating the shared tracker
+                            bal_raw = row.get(balance_col, "") if balance_col else ""
+                            row_balance = None
+                            if bal_raw and str(bal_raw).strip():
+                                b = _parse_amount(bal_raw)
+                                if b:
+                                    row_balance = b
+                                    running_balance = b  # keep track of last-seen balance
+
+                            if "exp" in description.lower() or "assignment" in description.lower() or "assigned" in description.lower():
+                                trade_type = "EXP"
+                            else:
+                                trade_type = "TRD"
+
+                            ticker = _extract_ticker(description)
+                            strategy, option_type, strike_short, strike_long = _detect_strategy(description)
+                            expiration_date = _extract_expiration(description)
+
+                            contracts = None
+                            if contracts_col:
+                                try:
+                                    contracts = int(float(str(row.get(contracts_col, "")).replace(",", "")))
+                                except (ValueError, TypeError):
+                                    pass
+
+                            premium_per_contract = None
+                            if contracts and contracts != 0:
+                                try:
+                                    premium_per_contract = abs(gross) / abs(contracts) / 100
+                                except ZeroDivisionError:
+                                    pass
+
+                            trades.append({
+                                "trade_date": trade_date,
+                                "trade_type": trade_type,
+                                "ticker": ticker,
+                                "strategy": strategy,
+                                "option_type": option_type,
+                                "contracts": contracts,
+                                "strike_short": strike_short,
+                                "strike_long": strike_long,
+                                "expiration_date": expiration_date,
+                                "premium_per_contract": premium_per_contract,
+                                "gross_amount": gross,
+                                "commissions": commission,
+                                "misc_fees": misc_fee,
+                                "running_balance": row_balance,
+                            })
+
+                        if all_dates:
+                            start_date = start_date or min(all_dates)
+                            end_date = end_date or max(all_dates)
+
+                        ending_balance = running_balance
+
+                except Exception:
                     pass
-                else:
-                    # Map normalized column names
-                    sample = raw_rows[0]
-                    cols = {k.strip().lower().replace(" ", "_"): k for k in sample.keys()}
-
-                    date_col = next((cols[c] for c in cols if "date" in c), None)
-                    desc_col = next((cols[c] for c in cols if "description" in c or "trade" in c), None)
-                    amount_col = next((cols[c] for c in cols if "amount" in c or "net" in c), None)
-                    balance_col = next((cols[c] for c in cols if "balance" in c or "running" in c), None)
-                    commission_col = next((cols[c] for c in cols if "commission" in c), None)
-                    misc_col = next((cols[c] for c in cols if "misc" in c or "fee" in c), None)
-                    contracts_col = next((cols[c] for c in cols if "qty" in c or "quantity" in c or "contracts" in c), None)
-
-                    all_dates = []
-                    running_balance = None
-
-                    for row in raw_rows:
-                        trade_date = _parse_date(row.get(date_col, "")) if date_col else None
-                        if not trade_date:
-                            continue
-
-                        all_dates.append(trade_date)
-                        description = str(row.get(desc_col, "")) if desc_col else ""
-                        gross = _parse_amount(row.get(amount_col, 0)) if amount_col else 0.0
-                        commission = _parse_amount(row.get(commission_col, 0)) if commission_col else 0.0
-                        misc_fee = _parse_amount(row.get(misc_col, 0)) if misc_col else 0.0
-
-                        # Capture this row's running balance BEFORE updating the shared tracker
-                        bal_raw = row.get(balance_col, "") if balance_col else ""
-                        row_balance = None
-                        if bal_raw and str(bal_raw).strip():
-                            b = _parse_amount(bal_raw)
-                            if b:
-                                row_balance = b
-                                running_balance = b  # keep track of last-seen balance
-
-                        if "exp" in description.lower() or "assignment" in description.lower() or "assigned" in description.lower():
-                            trade_type = "EXP"
-                        else:
-                            trade_type = "TRD"
-
-                        ticker = _extract_ticker(description)
-                        strategy, option_type, strike_short, strike_long = _detect_strategy(description)
-                        expiration_date = _extract_expiration(description)
-
-                        contracts = None
-                        if contracts_col:
-                            try:
-                                contracts = int(float(str(row.get(contracts_col, "")).replace(",", "")))
-                            except (ValueError, TypeError):
-                                pass
-
-                        premium_per_contract = None
-                        if contracts and contracts != 0:
-                            try:
-                                premium_per_contract = abs(gross) / abs(contracts) / 100
-                            except ZeroDivisionError:
-                                pass
-
-                        trades.append({
-                            "trade_date": trade_date,
-                            "trade_type": trade_type,
-                            "ticker": ticker,
-                            "strategy": strategy,
-                            "option_type": option_type,
-                            "contracts": contracts,
-                            "strike_short": strike_short,
-                            "strike_long": strike_long,
-                            "expiration_date": expiration_date,
-                            "premium_per_contract": premium_per_contract,
-                            "gross_amount": gross,
-                            "commissions": commission,
-                            "misc_fees": misc_fee,
-                            "running_balance": row_balance,
-                        })
-
-                    if all_dates:
-                        start_date = start_date or min(all_dates)
-                        end_date = end_date or max(all_dates)
-
-                    ending_balance = running_balance
-
-            except Exception:
-                pass
 
     if not start_date:
         start_date = date.today().replace(day=1)
@@ -274,5 +335,8 @@ def parse_thinkorswim_csv(file_path: str) -> dict:
         "start_date": start_date,
         "end_date": end_date,
         "ending_balance": ending_balance,
+        "buying_power_total": buying_power_total,
+        "buying_power_remaining": buying_power_remaining,
+        "order_stats": order_stats,
         "trades": trades,
     }

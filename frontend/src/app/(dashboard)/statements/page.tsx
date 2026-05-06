@@ -47,9 +47,12 @@ export default function StatementsPage() {
     setUploading(true);
     try {
       const res = await statementsApi.upload(file, replace);
-      message.success(`✅ Uploaded ${res.data.trade_count} trades successfully!`);
+      message.success(`✅ Uploaded ${res.data.trade_count} trades successfully! Redirecting to dashboard…`);
       setDuplicateModal({ visible: false, statementId: "", file: null, message: "" });
-      loadStatements();
+      // Pre-select the newly uploaded statement and go straight to the dashboard
+      setSelectedStatementId(res.data.statement_id);
+      setSelectedAccount(null);
+      router.push("/dashboard");
     } catch (e: any) {
       if (e.response?.status === 409 && e.response.data?.duplicate) {
         setDuplicateModal({ visible: true, statementId: e.response.data.statement_id, file, message: e.response.data.message });

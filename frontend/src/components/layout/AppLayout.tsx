@@ -68,8 +68,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const menuItems = [
     { key: "/dashboard",   icon: <DashboardOutlined />,  label: "Dashboard"  },
     { key: "/statements",  icon: <FileTextOutlined />,   label: "Statements" },
-    { key: "/positions",   icon: <BarChartOutlined />,   label: "Positions"  },
-    { key: "/analytics",   icon: <LineChartOutlined />,  label: "Analytics"  },
+    { key: "/predictions", icon: <LineChartOutlined />,  label: "Predictions" },
   ];
 
   const userMenuItems = [
@@ -97,7 +96,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
           {!collapsed && (
             <Title level={4} style={{ color: "#fff", margin: 0, fontWeight: 800, background: "linear-gradient(90deg,#6366f1,#22d3ee)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              OptionsIQ
+              Opencap
             </Title>
           )}
         </div>

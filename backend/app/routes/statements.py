@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 from app import db
-from app.models import Statement, Trade, MonthlySummary
+from app.models import Statement, Trade, MonthlySummary, Order
 from app.services.csv_parser import parse_thinkorswim_csv
 
 statements_bp = Blueprint("statements", __name__)
@@ -79,6 +79,8 @@ def upload_statement():
         file_path=file_path,
         filename=filename,
         trade_count=len(parse_result.get("trades", [])),
+        buying_power_total=parse_result.get("buying_power_total"),
+        buying_power_remaining=parse_result.get("buying_power_remaining"),
     )
     db.session.add(stmt)
     db.session.flush()
@@ -91,6 +93,17 @@ def upload_statement():
             **t,
         )
         db.session.add(trade)
+    
+    # Insert orders
+    order_stats = parse_result.get("order_stats", {})
+    for o in order_stats.get("orders", []):
+        order = Order(
+            statement_id=stmt.statement_id,
+            user_id=user_id,
+            order_date=o["date"],
+            status=o["status"]
+        )
+        db.session.add(order)
 
     # Rebuild monthly summary for this account
     _rebuild_monthly_summary(user_id, account_id)
@@ -163,13 +176,19 @@ def _rebuild_monthly_summary(user_id: str, account_id: str):
         "total_fills": 0,
         "ending_balance": None,
         "assignment_count": 0,
+        "total_options_placed": 0,
+        "total_active_orders": 0,
+        "total_cancelled_orders": 0,
+        "total_closed_orders": 0,
+        "commissions_paid": 0.0,
     })
 
     for t in trades:
         key = date(t.trade_date.year, t.trade_date.month, 1)
         m = monthly[key]
         amount = float(t.gross_amount)
-        fees = float(t.commissions or 0) + float(t.misc_fees or 0)
+        comm = float(t.commissions or 0)
+        fees = comm + float(t.misc_fees or 0)
         if t.trade_type == "EXP":
             m["assignment_costs"] += amount
             m["assignment_count"] += 1
@@ -178,9 +197,27 @@ def _rebuild_monthly_summary(user_id: str, account_id: str):
         else:
             m["losses_realized"] += amount
         m["total_fees"] += fees
+        m["commissions_paid"] += comm
         m["total_fills"] += 1
         if t.running_balance is not None:
             m["ending_balance"] = float(t.running_balance)
+
+    # Aggregated orders for this account
+    orders = Order.query.filter_by(user_id=user_id).join(Statement).filter(
+        Statement.account_id == account_id
+    ).all()
+    for o in orders:
+        if not o.order_date: continue
+        key = date(o.order_date.year, o.order_date.month, 1)
+        m = monthly[key]
+        m["total_options_placed"] += 1
+        status = (o.status or "").upper()
+        if "CANCEL" in status:
+            m["total_cancelled_orders"] += 1
+        elif "FILL" in status:
+            m["total_closed_orders"] += 1
+        else:
+            m["total_active_orders"] += 1
 
     for key, m in monthly.items():
         m["net_pnl"] = m["premium_collected"] + m["losses_realized"] + m["assignment_costs"] - m["total_fees"]

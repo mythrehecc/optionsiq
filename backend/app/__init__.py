@@ -36,10 +36,12 @@ def create_app():
     from app.routes.auth import auth_bp
     from app.routes.statements import statements_bp
     from app.routes.dashboard import dashboard_bp
+    from app.routes.predictions import predictions_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(statements_bp, url_prefix="/statements")
     app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
+    app.register_blueprint(predictions_bp, url_prefix="/predictions")
 
     # Ensure tables are created automatically in production
     with app.app_context():

@@ -24,6 +24,8 @@ export interface Statement {
   uploaded_at: string;
   trade_count: number;
   filename: string;
+  buying_power_total: number | null;
+  buying_power_remaining: number | null;
 }
 
 export interface Trade {
@@ -58,6 +60,11 @@ export interface MonthlySummary {
   total_fills: number;
   ending_balance: number | null;
   assignment_count: number;
+  total_options_placed: number;
+  total_active_orders: number;
+  total_cancelled_orders: number;
+  total_closed_orders: number;
+  commissions_paid: number;
 }
 
 export interface DashboardSummary {
@@ -71,6 +78,9 @@ export interface DashboardSummary {
   period_start: string;
   period_end: string;
   account_id: string;
+  opening_cash_balance: number | null;
+  buying_power_total: number | null;
+  buying_power_remaining: number | null;
 }
 
 export interface RiskAlert {

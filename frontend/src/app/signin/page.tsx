@@ -54,7 +54,7 @@ export default function SignInPage() {
           }}>
             <RocketOutlined style={{ fontSize: 28, color: "#fff" }} />
           </div>
-          <Title level={2} style={{ color: "#fff", margin: 0, fontWeight: 800, letterSpacing: -0.5 }}>OptionsIQ</Title>
+          <Title level={2} style={{ color: "#fff", margin: 0, fontWeight: 800, letterSpacing: -0.5 }}>Opencap</Title>
           <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }}>Sign in to your trading dashboard</Text>
         </div>
 
@@ -92,7 +92,7 @@ export default function SignInPage() {
         </Form>
 
         <Divider style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.3)", fontSize: 12 }}>
-          New to OptionsIQ?
+          New to OpencapIQ?
         </Divider>
         <div style={{ textAlign: "center" }}>
           <Link href="/signup">
