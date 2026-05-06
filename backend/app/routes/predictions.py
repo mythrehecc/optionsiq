@@ -70,8 +70,19 @@ def _load_lstm():
 def _fetch_data(ticker, period="3mo"):
     """Fetch recent stock data via yfinance."""
     import yfinance as yf
-    df = yf.download(ticker, period=period, progress=False)
-    if df.empty:
+    import requests
+    
+    session = requests.Session()
+    session.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+    })
+    
+    try:
+        df = yf.download(ticker, period=period, progress=False, session=session)
+    except Exception:
+        return None
+        
+    if df is None or df.empty:
         return None
     # Flatten multi-level columns if present
     if hasattr(df.columns, 'levels'):
