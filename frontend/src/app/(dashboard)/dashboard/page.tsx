@@ -23,8 +23,8 @@ const cardStyle = {
 
 const StatCard = ({ title, value, prefix, suffix, delta, color, icon }: any) => (
   <Card style={{ ...cardStyle, height: "100%" }} bodyStyle={{ padding: "20px 24px" }}>
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-      <div>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", minHeight: 80 }}>
+      <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
         <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, fontWeight: 500, textTransform: "uppercase", letterSpacing: 1 }}>{title}</Text>
         <div style={{ marginTop: 8 }}>
           <span style={{ fontSize: 28, fontWeight: 800, color: color || "#fff" }}>
@@ -41,7 +41,7 @@ const StatCard = ({ title, value, prefix, suffix, delta, color, icon }: any) => 
           </div>
         )}
       </div>
-      <div style={{ width: 44, height: 44, borderRadius: 12, background: `${color || "#6366f1"}20`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ width: 44, height: 44, borderRadius: 12, background: `${color || "#6366f1"}20`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginLeft: "auto" }}>
         {React.cloneElement(icon, { style: { fontSize: 22, color: color || "#6366f1" } })}
       </div>
     </div>
@@ -378,16 +378,25 @@ export default function DashboardPage() {
 
           {/* KPI Cards */}
           <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-            <Col xs={24} sm={12} xl={6}>
+            <Col xs={24} sm={12} xl={5}>
               <StatCard title="Cash Balance" value={summary.cash_balance} prefix="$" delta={summary.balance_delta} color="#6366f1" icon={<DollarOutlined />} />
             </Col>
-            <Col xs={24} sm={12} xl={6}>
+            <Col xs={24} sm={12} xl={4}>
               <StatCard title="Net P&L" value={summary.net_pnl} prefix="$" color={summary.net_pnl >= 0 ? "#10b981" : "#f43f5e"} icon={<RiseOutlined />} />
             </Col>
-            <Col xs={24} sm={12} xl={6}>
+            <Col xs={24} sm={12} xl={5}>
               <StatCard title="Premium Collected" value={summary.premium_collected} prefix="$" color="#22d3ee" icon={<ThunderboltOutlined />} />
             </Col>
-            <Col xs={24} sm={12} xl={6}>
+            <Col xs={24} sm={12} xl={5}>
+              <StatCard
+                title="Buying Power"
+                value={summary.buying_power_remaining ?? summary.buying_power_total ?? null}
+                prefix="$"
+                color="#a78bfa"
+                icon={<ThunderboltOutlined />}
+              />
+            </Col>
+            <Col xs={24} sm={12} xl={5}>
               <StatCard title="Fee Drag" value={summary.fee_pct_of_premium} suffix="% of premium" color="#f59e0b" icon={<WarningOutlined />} />
             </Col>
           </Row>
@@ -405,8 +414,7 @@ export default function DashboardPage() {
                       <YAxis tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} />
                       <Tooltip contentStyle={{ background: "#1a1a2e", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 10, color: "#fff" }} formatter={(v: any) => [`$${Number(v).toFixed(2)}`]} />
                       <Legend wrapperStyle={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }} />
-                      <Bar dataKey="premium" name="Premium" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="pnl" name="Net P&L" fill="#22d3ee" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="premium" name="Premium Collected" fill="#6366f1" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -556,10 +564,11 @@ export default function DashboardPage() {
                 dataSource={positions}
                 rowKey="trade_id"
                 pagination={{ pageSize: 10, style: { padding: "12px 24px" } }}
-                scroll={{ x: 900 }}
+                scroll={{ x: 1300 }}
                 locale={{ emptyText: <Empty description={<span style={{ color: "rgba(255,255,255,0.4)" }}>No open positions found.</span>} /> }}
                 style={{ background: "transparent" }}
                 columns={[
+                  { title: "Date Placed", dataIndex: "trade_date", key: "trade_date", render: (d: string) => <Text style={{ color: "rgba(255,255,255,0.7)" }}>{d ? dayjs(d).format("MMM D, YYYY") : "—"}</Text>, sorter: (a: Trade, b: Trade) => (a.trade_date || "").localeCompare(b.trade_date || ""), defaultSortOrder: "descend" as any },
                   { title: "Ticker", dataIndex: "ticker", key: "ticker", render: (t: string) => <Text style={{ color: "#6366f1", fontWeight: 700, fontSize: 15 }}>{t}</Text>, sorter: (a: Trade, b: Trade) => a.ticker.localeCompare(b.ticker) },
                   { title: "Strategy", dataIndex: "strategy", key: "strategy", render: (s: string) => <Tag color="purple" style={{ fontWeight: 500 }}>{s || "Other"}</Tag> },
                   { title: "Type", dataIndex: "option_type", key: "option_type", render: (t: string) => <Tag color={t === "PUT" ? "red" : t === "CALL" ? "green" : "blue"}>{t || "—"}</Tag> },
@@ -568,6 +577,14 @@ export default function DashboardPage() {
                   { title: "DTE", dataIndex: "dte", key: "dte", render: (d: number) => <Tag color={d < 7 ? "red" : d <= 21 ? "orange" : "green"} style={{ fontWeight: 700 }}>{d ?? "—"} days</Tag>, sorter: (a: Trade, b: Trade) => (a.dte ?? 999) - (b.dte ?? 999) },
                   { title: "Contracts", dataIndex: "contracts", key: "contracts", render: (c: number) => <Text style={{ color: "rgba(255,255,255,0.7)" }}>{c ?? "—"}</Text> },
                   { title: "Premium/Contract", dataIndex: "premium_per_contract", key: "premium_per_contract", render: (v: number) => <Text style={{ color: "#22d3ee", fontWeight: 600 }}>{v != null ? `$${v.toFixed(2)}` : "—"}</Text> },
+                  { title: "Tax (15%)", key: "tax", render: (_: any, r: Trade) => {
+                    const ppc = r.premium_per_contract;
+                    const contracts = r.contracts;
+                    if (ppc == null || contracts == null) return <Text style={{ color: "rgba(255,255,255,0.4)" }}>—</Text>;
+                    const totalPremium = ppc * Math.abs(contracts) * 100;
+                    const tax = totalPremium * 0.15;
+                    return <Text style={{ color: "#f59e0b", fontWeight: 600 }}>${tax.toFixed(2)}</Text>;
+                  }},
                   { title: "Risk", dataIndex: "risk_level", key: "risk_level", render: (r: string) => {
                     const riskColors: Record<string, string> = { High: "#f43f5e", Medium: "#f59e0b", Low: "#10b981" };
                     const riskBg: Record<string, string> = { High: "rgba(244,63,94,0.12)", Medium: "rgba(245,158,11,0.12)", Low: "rgba(16,185,129,0.12)" };

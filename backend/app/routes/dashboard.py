@@ -48,9 +48,14 @@ def get_summary():
     tq = Trade.query.filter_by(user_id=user_id, statement_id=latest_stmt.statement_id)
     trades = tq.all()
 
-    premium = sum(float(t.gross_amount) for t in trades if float(t.gross_amount) > 0 and t.trade_type == "TRD")
-    net_pnl = sum(float(t.gross_amount) for t in trades if t.trade_type == "TRD")
+    # Premium collected = Premium amount * quantity for all credit trades
+    premium = sum(float(t.premium_per_contract or 0) * abs(float(t.contracts or 0)) for t in trades 
+                  if t.trade_type == "TRD" and float(t.gross_amount) > 0)
+    # Net premium = Add all credits - Subtract all debits (commissions, fees, premiums paid)
+    credits = sum(float(t.gross_amount) for t in trades if t.trade_type == "TRD" and float(t.gross_amount) > 0)
+    debits = sum(abs(float(t.gross_amount)) for t in trades if t.trade_type == "TRD" and float(t.gross_amount) < 0)
     fees = sum(float(t.commissions or 0) + float(t.misc_fees or 0) for t in trades)
+    net_pnl = credits - debits - fees
     tickers = len(set(t.ticker for t in trades))
 
     # Prior month balance
@@ -164,7 +169,9 @@ def get_mom():
                 m["assignment_costs"] += amount
                 m["assignment_count"] += 1
             elif amount > 0:
-                m["premium_collected"] += amount
+                # Premium collected = Premium amount * quantity
+                premium_amount = float(t.premium_per_contract or 0) * abs(float(t.contracts or 0))
+                m["premium_collected"] += premium_amount
             else:
                 m["losses_realized"] += amount
             m["total_fees"] += fees
@@ -194,6 +201,9 @@ def get_mom():
         result = []
         for key in sorted(monthly.keys()):
             m = monthly[key]
+            # Net P&L = credits - debits - fees (already calculated correctly above)
+            # losses_realized already contains negative values (debits)
+            # assignment_costs are also negative values
             m["net_pnl"] = m["premium_collected"] + m["losses_realized"] + m["assignment_costs"] - m["total_fees"]
             result.append({
                 "summary_id": "dynamic",

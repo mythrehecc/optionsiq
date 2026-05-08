@@ -391,34 +391,117 @@ def _load_simplified(filepath: str) -> list:
 # ── Meta-data helpers ────────────────────────────────────────────────────────
 
 def _extract_meta(filepath: str) -> dict:
-    """Pull account_id, account_type, start/end date, ending_balance from header lines."""
+    """
+    Pull account_id, account_type, start/end date, ending_balance,
+    and buying power values from header lines of a TOS CSV.
+
+    ThinkorSwim statements typically contain rows like:
+      "Option Buying Power,37024.87"
+      "Net Liquidating Value,74049.74"
+      "Stock Buying Power,74049.74"
+    in the first ~60 lines before the trade history block.
+    """
     with open(filepath, encoding="utf-8-sig", errors="replace") as f:
         lines = f.readlines()
 
-    account_id   = "UNKNOWN"
-    account_type = "Individual"
-    start_date   = None
-    end_date     = None
+    account_id              = "UNKNOWN"
+    account_type            = "Individual"
+    start_date              = None
+    end_date                = None
+    buying_power_total      = None   # Stock / Total buying power
+    buying_power_remaining  = None   # Option buying power (most relevant for options traders)
 
-    for line in lines[:30]:
-        if "ira" in line.lower():
+    # First pass: Check first 60 lines for standard buying power formats
+    for line in lines[:60]:
+        stripped = line.strip()
+        lower    = stripped.lower()
+
+        # ── Account type ────────────────────────────────────────────────────
+        if "ira" in lower:
             account_type = "Rollover IRA"
-        m = re.search(r"Account[:\s]+([\w\-]+)", line, re.I)
+
+        # ── Account ID ──────────────────────────────────────────────────────
+        m = re.search(r"Account[:\s]+([\w\-]+)", stripped, re.I)
         if m and m.group(1).lower() not in ["trade", "statement", "history", "name", "number"]:
             account_id = m.group(1)
-        if "date range" in line.lower() or "period" in line.lower():
-            dates = re.findall(r"\d{1,2}/\d{1,2}/\d{4}", line)
+
+        # ── Date range ──────────────────────────────────────────────────────
+        if "date range" in lower or "period" in lower:
+            dates = re.findall(r"\d{1,2}/\d{1,2}/\d{4}", stripped)
             if len(dates) >= 2:
                 start_date = _parse_date(dates[0])
                 end_date   = _parse_date(dates[1])
             elif len(dates) == 1:
                 end_date = _parse_date(dates[0])
 
+        # ── Buying Power (first pass) ───────────────────────────────────────
+        bp_amount_match = re.search(
+            r"([\$]?[\d,]+\.\d{2}|[\d,]+\.\d{2})",
+            stripped
+        )
+        bp_val = _parse_amount(bp_amount_match.group(1)) if bp_amount_match else None
+
+        if bp_val and bp_val > 0:
+            if re.search(r"option\s+buying\s+power", lower):
+                buying_power_remaining = bp_val
+            elif re.search(r"(stock\s+buying\s+power|total\s+buying\s+power|net\s+liq)", lower):
+                buying_power_total = bp_val
+            elif re.search(r"buying\s+power", lower) and buying_power_total is None:
+                buying_power_total = bp_val
+
+    # Second pass: Search entire file for "buying power" keyword (as requested)
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        lower = stripped.lower()
+        
+        if "buying power" in lower:
+            # Look for numbers on the same line or next few lines
+            bp_amount_match = re.search(
+                r"([\$]?[\d,]+\.\d{2}|[\d,]+\.\d{2})",
+                stripped
+            )
+            if bp_amount_match:
+                bp_val = _parse_amount(bp_amount_match.group(1))
+                if bp_val and bp_val > 0:
+                    if "option" in lower and buying_power_remaining is None:
+                        buying_power_remaining = bp_val
+                    elif buying_power_total is None:
+                        buying_power_total = bp_val
+            else:
+                # Check next few lines for the amount
+                for j in range(1, 4):
+                    if i + j < len(lines):
+                        next_line = lines[i + j].strip()
+                        next_amount_match = re.search(
+                            r"([\$]?[\d,]+\.\d{2}|[\d,]+\.\d{2})",
+                            next_line
+                        )
+                        if next_amount_match:
+                            bp_val = _parse_amount(next_amount_match.group(1))
+                            if bp_val and bp_val > 0:
+                                if "option" in lower and buying_power_remaining is None:
+                                    buying_power_remaining = bp_val
+                                elif buying_power_total is None:
+                                    buying_power_total = bp_val
+                                break
+
+    # If only one value was found, mirror it to the other field
+    if buying_power_total and not buying_power_remaining:
+        buying_power_remaining = buying_power_total
+    elif buying_power_remaining and not buying_power_total:
+        buying_power_total = buying_power_remaining
+
+    # Debug logging (can be removed in production)
+    if buying_power_total or buying_power_remaining:
+        print(f"DEBUG: Found buying power - Total: {buying_power_total}, Remaining: {buying_power_remaining}")
+
     return {
-        "account_id":   account_id,
-        "account_type": account_type,
-        "start_date":   start_date,
-        "end_date":     end_date,
+        "account_id":             account_id,
+        "account_type":           account_type,
+        "start_date":             start_date,
+        "end_date":               end_date,
+        "buying_power_total":     buying_power_total,
+        "buying_power_remaining": buying_power_remaining,
     }
 
 
@@ -465,8 +548,8 @@ def parse_thinkorswim_csv(file_path: str) -> dict:
         "start_date":             meta["start_date"],
         "end_date":               meta["end_date"],
         "ending_balance":         ending_balance,
-        "buying_power_total":     None,
-        "buying_power_remaining": None,
+        "buying_power_total":     meta.get("buying_power_total"),
+        "buying_power_remaining": meta.get("buying_power_remaining"),
         "order_stats":            {"active": 0, "cancelled": 0, "filled": 0, "total": 0, "orders": []},
         "trades":                 trades,
         "format_detected":        fmt,
