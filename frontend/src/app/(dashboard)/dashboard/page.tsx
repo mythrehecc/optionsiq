@@ -215,7 +215,9 @@ export default function DashboardPage() {
   const [taxRate, setTaxRate] = useState(15);
   const [statements, setStatements] = useState<Statement[]>([]);
   const [statementsLoading, setStatementsLoading] = useState(true);
-  const { selectedAccount, selectedStatementId, setSelectedStatementId, setSelectedAccount, summary, setSummary, monthlySummaries, setMonthlySummaries, alerts, setAlerts, tickerPnL, setTickerPnL, strategyPnL, setStrategyPnL, positions, setPositions, isLoading, setLoading } = useDashboard();
+  const [posPage, setPosPage] = useState(1);
+  const [posPageSize, setPosPageSize] = useState(10);
+  const { selectedAccount, selectedStatementId, setSelectedStatementId, setSelectedAccount, summary, setSummary, monthlySummaries, setMonthlySummaries, alerts, setAlerts, tickerPnL, setTickerPnL, strategyPnL, setStrategyPnL, positions, setPositions, totalPositions, setTotalPositions, isLoading, setLoading } = useDashboard();
 
   // Load statements list for the selector
   useEffect(() => {
@@ -234,7 +236,7 @@ export default function DashboardPage() {
         dashboardApi.alerts({ accountId: selectedAccount, statementId: selectedStatementId }),
         dashboardApi.tickerPnl({ accountId: selectedAccount, statementId: selectedStatementId }),
         dashboardApi.strategyPnl({ accountId: selectedAccount, statementId: selectedStatementId }),
-        dashboardApi.positions({ accountId: selectedAccount, statementId: selectedStatementId }),
+        dashboardApi.positions({ accountId: selectedAccount, statementId: selectedStatementId, page: posPage, per_page: posPageSize }),
       ]);
       setSummary(sumRes.data.summary);
       setMonthlySummaries(momRes.data.mom);
@@ -242,11 +244,17 @@ export default function DashboardPage() {
       setTickerPnL(tickerRes.data.ticker_pnl);
       setStrategyPnL(stratRes.data.strategy_pnl);
       setPositions(posRes.data.positions || []);
+      setTotalPositions(posRes.data.total || 0);
     } catch (e) { /* no data yet */ }
     setLoading(false);
   }, [selectedAccount, selectedStatementId]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setPosPage(1);
+  }, [selectedAccount, selectedStatementId]);
 
   const momChartData = monthlySummaries.map((m) => ({
     month: dayjs(m.month_year).format("MMM YY"),
@@ -563,9 +571,22 @@ export default function DashboardPage() {
               <Table
                 dataSource={positions}
                 rowKey="trade_id"
-                pagination={{ pageSize: 10, style: { padding: "12px 24px" } }}
-                scroll={{ x: 1300 }}
+                pagination={{ 
+                  current: posPage,
+                  pageSize: posPageSize,
+                  total: totalPositions,
+                  showSizeChanger: true,
+                  pageSizeOptions: ["10", "20", "50", "100"],
+                  showTotal: (total) => `Total ${total} positions`,
+                  style: { padding: "16px 24px", margin: 0, borderTop: "1px solid rgba(255,255,255,0.06)" } 
+                }}
+                onChange={(pagination) => {
+                  setPosPage(pagination.current || 1);
+                  setPosPageSize(pagination.pageSize || 10);
+                }}
+                scroll={{ x: "max-content" }}
                 locale={{ emptyText: <Empty description={<span style={{ color: "rgba(255,255,255,0.4)" }}>No open positions found.</span>} /> }}
+                className="custom-table flex-table"
                 style={{ background: "transparent" }}
                 columns={[
                   { title: "Date Placed", dataIndex: "trade_date", key: "trade_date", render: (d: string) => <Text style={{ color: "rgba(255,255,255,0.7)" }}>{d ? dayjs(d).format("MMM D, YYYY") : "—"}</Text>, sorter: (a: Trade, b: Trade) => (a.trade_date || "").localeCompare(b.trade_date || ""), defaultSortOrder: "descend" as any },

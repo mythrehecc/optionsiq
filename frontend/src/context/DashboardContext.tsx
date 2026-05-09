@@ -14,12 +14,14 @@ interface DashboardContextValue {
   tickerPnL: TickerPnL[];
   strategyPnL: StrategyPnL[];
   statements: any[];
+  totalPositions: number;
   isLoading: boolean;
   setSelectedAccount: (accountId: string | null) => void;
   setSelectedStatementId: (statementId: string | null) => void;
   setAccounts: (accounts: Account[]) => void;
   setSummary: (summary: DashboardSummary | null) => void;
   setPositions: (positions: Trade[]) => void;
+  setTotalPositions: (total: number) => void;
   setMonthlySummaries: (summaries: MonthlySummary[]) => void;
   setAlerts: (alerts: RiskAlert[]) => void;
   setTickerPnL: (tickerPnL: TickerPnL[]) => void;
@@ -36,6 +38,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [positions, setPositions] = useState<Trade[]>([]);
+  const [totalPositions, setTotalPositions] = useState(0);
   const [monthlySummaries, setMonthlySummaries] = useState<MonthlySummary[]>([]);
   const [alerts, setAlerts] = useState<RiskAlert[]>([]);
   const [tickerPnL, setTickerPnL] = useState<TickerPnL[]>([]);
@@ -51,6 +54,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         accounts,
         summary,
         positions,
+        totalPositions,
         monthlySummaries,
         alerts,
         tickerPnL,
@@ -62,6 +66,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         setAccounts,
         setSummary,
         setPositions,
+        setTotalPositions,
         setMonthlySummaries,
         setAlerts,
         setTickerPnL,

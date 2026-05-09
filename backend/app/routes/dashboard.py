@@ -94,6 +94,8 @@ def get_positions():
     user_id = get_jwt_identity()
     account_id = request.args.get("account_id")
     statement_id = request.args.get("statement_id")
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 15, type=int)
     today = date.today()
 
     # Get open positions: trades with future expiration dates
@@ -106,7 +108,10 @@ def get_positions():
     elif account_id:
         q = q.join(Statement).filter(Statement.account_id == account_id)
 
-    trades = q.order_by(Trade.expiration_date.asc()).all()
+    pagination = q.order_by(Trade.expiration_date.asc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    trades = pagination.items
 
     positions = []
     for t in trades:
@@ -118,7 +123,12 @@ def get_positions():
             "risk_level": risk,
         })
 
-    return jsonify({"positions": positions}), 200
+    return jsonify({
+        "positions": positions,
+        "total": pagination.total,
+        "page": pagination.page,
+        "pages": pagination.pages
+    }), 200
 
 
 @dashboard_bp.route("/alerts", methods=["GET"])

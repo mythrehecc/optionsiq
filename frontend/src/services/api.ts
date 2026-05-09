@@ -135,9 +135,14 @@ export const dashboardApi = {
     apiClient.get("/dashboard/summary", {
       params: { account_id: params?.accountId || undefined, statement_id: params?.statementId || undefined },
     }),
-  positions: (params?: { accountId?: string | null; statementId?: string | null }) =>
+  positions: (params?: { accountId?: string | null; statementId?: string | null; page?: number; per_page?: number }) =>
     apiClient.get("/dashboard/positions", {
-      params: { account_id: params?.accountId || undefined, statement_id: params?.statementId || undefined },
+      params: { 
+        account_id: params?.accountId || undefined, 
+        statement_id: params?.statementId || undefined,
+        page: params?.page,
+        per_page: params?.per_page
+      },
     }),
   alerts: (params?: { accountId?: string | null; statementId?: string | null }) =>
     apiClient.get("/dashboard/alerts", {

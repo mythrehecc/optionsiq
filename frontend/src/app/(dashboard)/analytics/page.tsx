@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useCallback } from "react";
+import React, { useEffect, useCallback, useState } from "react";
 import { Card, Row, Col, Typography, Empty, Spin, Statistic, Table } from "antd";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from "recharts";
 import { useDashboard } from "@/context/DashboardContext";
@@ -20,6 +20,8 @@ const cardStyle = {
 const tooltipStyle = { background: "#1a1a2e", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 10, color: "#fff" };
 
 export default function AnalyticsPage() {
+  const [tickerPage, setTickerPage] = useState(1);
+  const [tickerPageSize, setTickerPageSize] = useState(8);
   const { selectedAccount, selectedStatementId, monthlySummaries, setMonthlySummaries, tickerPnL, setTickerPnL, strategyPnL, setStrategyPnL, isLoading, setLoading } = useDashboard();
 
   const load = useCallback(async () => {
@@ -33,11 +35,16 @@ export default function AnalyticsPage() {
       setMonthlySummaries(momRes.data.mom || []);
       setTickerPnL(tickerRes.data.ticker_pnl || []);
       setStrategyPnL(stratRes.data.strategy_pnl || []);
-    } catch {}
+    } catch { }
     setLoading(false);
   }, [selectedAccount, selectedStatementId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setTickerPage(1);
+  }, [selectedAccount, selectedStatementId]);
 
   const momData = monthlySummaries.map((m) => ({
     month: dayjs(m.month_year).format("MMM YY"),
@@ -177,7 +184,18 @@ export default function AnalyticsPage() {
                   columns={tickerTableCols}
                   rowKey="ticker"
                   size="small"
-                  pagination={{ pageSize: 8 }}
+                  pagination={{
+                    current: tickerPage,
+                    pageSize: tickerPageSize,
+                    showSizeChanger: true,
+                    pageSizeOptions: ["8", "16", "32"],
+                    style: { padding: "8px 16px" }
+                  }}
+                  onChange={(pagination) => {
+                    setTickerPage(pagination.current || 1);
+                    setTickerPageSize(pagination.pageSize || 8);
+                  }}
+                  className="custom-table"
                   style={{ background: "transparent" }}
                   locale={{ emptyText: <Empty description={<span style={{ color: "rgba(255,255,255,0.4)" }}>No data</span>} /> }}
                 />

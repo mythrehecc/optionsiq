@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useCallback } from "react";
+import React, { useEffect, useCallback, useState } from "react";
 import { Card, Table, Tag, Typography, Empty, Spin, Tooltip, Badge, Space } from "antd";
 import { WarningOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 import { useDashboard } from "@/context/DashboardContext";
@@ -20,18 +20,26 @@ const riskColors: Record<string, string> = { High: "#f43f5e", Medium: "#f59e0b",
 const riskBg: Record<string, string> = { High: "rgba(244,63,94,0.12)", Medium: "rgba(245,158,11,0.12)", Low: "rgba(16,185,129,0.12)" };
 
 export default function PositionsPage() {
-  const { selectedAccount, selectedStatementId, positions, setPositions, isLoading, setLoading } = useDashboard();
+  const [posPage, setPosPage] = useState(1);
+  const [posPageSize, setPosPageSize] = useState(15);
+  const { selectedAccount, selectedStatementId, positions, setPositions, totalPositions, setTotalPositions, isLoading, setLoading } = useDashboard();
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await dashboardApi.positions({ accountId: selectedAccount, statementId: selectedStatementId });
+      const res = await dashboardApi.positions({ accountId: selectedAccount, statementId: selectedStatementId, page: posPage, per_page: posPageSize });
       setPositions(res.data.positions || []);
+      setTotalPositions(res.data.total || 0);
     } catch {}
     setLoading(false);
-  }, [selectedAccount, selectedStatementId]);
+  }, [selectedAccount, selectedStatementId, posPage, posPageSize]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setPosPage(1);
+  }, [selectedAccount, selectedStatementId]);
 
   const columns = [
     {
@@ -142,10 +150,23 @@ export default function PositionsPage() {
           dataSource={positions}
           columns={columns}
           rowKey="trade_id"
-          pagination={{ pageSize: 15, style: { padding: "12px 24px" } }}
+          pagination={{ 
+            current: posPage,
+            pageSize: posPageSize,
+            total: totalPositions,
+            showSizeChanger: true,
+            pageSizeOptions: ["15", "30", "50"],
+            showTotal: (total) => `Total ${total} positions`,
+            style: { padding: "12px 24px" } 
+          }}
+          onChange={(pagination) => {
+            setPosPage(pagination.current || 1);
+            setPosPageSize(pagination.pageSize || 15);
+          }}
           scroll={{ x: 900 }}
           locale={{ emptyText: <Empty description={<span style={{ color: "rgba(255,255,255,0.4)" }}>No open positions found. Upload a statement to see your positions.</span>} /> }}
           rowClassName={(r) => r.risk_level === "High" ? "row-high-risk" : ""}
+          className="custom-table"
           style={{ background: "transparent" }}
         />
       </Card>
