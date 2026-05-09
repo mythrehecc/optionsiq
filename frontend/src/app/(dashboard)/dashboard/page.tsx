@@ -217,6 +217,8 @@ export default function DashboardPage() {
   const [statementsLoading, setStatementsLoading] = useState(true);
   const [posPage, setPosPage] = useState(1);
   const [posPageSize, setPosPageSize] = useState(10);
+  const [momPage, setMomPage] = useState(1);
+  const [momPageSize, setMomPageSize] = useState(10);
   const { selectedAccount, selectedStatementId, setSelectedStatementId, setSelectedAccount, summary, setSummary, monthlySummaries, setMonthlySummaries, alerts, setAlerts, tickerPnL, setTickerPnL, strategyPnL, setStrategyPnL, positions, setPositions, totalPositions, setTotalPositions, isLoading, setLoading } = useDashboard();
 
   // Load statements list for the selector
@@ -478,7 +480,18 @@ export default function DashboardPage() {
             <Card style={cardStyle} bodyStyle={{ padding: 0 }}>
               <Table 
                 dataSource={monthlySummaries}
-                pagination={false}
+                pagination={{
+                  current: momPage,
+                  pageSize: momPageSize,
+                  showSizeChanger: true,
+                  pageSizeOptions: ["10", "20", "50", "100"],
+                  showTotal: (total) => `Total ${total} months`,
+                  style: { padding: "12px 24px", borderTop: "1px solid rgba(255,255,255,0.06)" }
+                }}
+                onChange={(pagination) => {
+                  setMomPage(pagination.current || 1);
+                  setMomPageSize(pagination.pageSize || 10);
+                }}
                 rowKey="summary_id"
                 columns={[
                   {
@@ -544,7 +557,7 @@ export default function DashboardPage() {
                     }
                   }
                 ]}
-                className="custom-table"
+                className="custom-table flex-table"
                 style={{ background: "transparent" }}
               />
             </Card>

@@ -245,9 +245,16 @@ export default function StatementsPage() {
             expandedRowRender, 
             onExpand: (expanded, record) => { if (expanded) loadTrades(record.statement_id); } 
           }}
-          pagination={{ pageSize: 10, style: { padding: "12px 24px" } }}
+          pagination={{ 
+            pageSize: 10, 
+            showSizeChanger: true, 
+            pageSizeOptions: ["10", "20", "50", "100"],
+            showTotal: (total) => `Total ${total} statements`,
+            style: { padding: "16px 24px", borderTop: "1px solid rgba(255,255,255,0.06)" } 
+          }}
           locale={{ emptyText: <Empty description={<span style={{ color: "rgba(255,255,255,0.4)" }}>No statements uploaded yet</span>} /> }}
           style={{ background: "transparent" }}
+          className="custom-table flex-table"
         />
       </Card>
 

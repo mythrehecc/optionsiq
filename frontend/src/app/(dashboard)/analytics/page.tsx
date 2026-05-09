@@ -188,14 +188,15 @@ export default function AnalyticsPage() {
                     current: tickerPage,
                     pageSize: tickerPageSize,
                     showSizeChanger: true,
-                    pageSizeOptions: ["8", "16", "32"],
-                    style: { padding: "8px 16px" }
+                    pageSizeOptions: ["8", "16", "32", "64", "128"],
+                    showTotal: (total) => `Total ${total} tickers`,
+                    style: { padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.06)" }
                   }}
                   onChange={(pagination) => {
                     setTickerPage(pagination.current || 1);
                     setTickerPageSize(pagination.pageSize || 8);
                   }}
-                  className="custom-table"
+                  className="custom-table flex-table"
                   style={{ background: "transparent" }}
                   locale={{ emptyText: <Empty description={<span style={{ color: "rgba(255,255,255,0.4)" }}>No data</span>} /> }}
                 />

@@ -155,19 +155,19 @@ export default function PositionsPage() {
             pageSize: posPageSize,
             total: totalPositions,
             showSizeChanger: true,
-            pageSizeOptions: ["15", "30", "50"],
+            pageSizeOptions: ["15", "30", "50", "100"],
             showTotal: (total) => `Total ${total} positions`,
-            style: { padding: "12px 24px" } 
+            style: { padding: "16px 24px", borderTop: "1px solid rgba(255,255,255,0.06)" }
           }}
           onChange={(pagination) => {
             setPosPage(pagination.current || 1);
             setPosPageSize(pagination.pageSize || 15);
           }}
-          scroll={{ x: 900 }}
-          locale={{ emptyText: <Empty description={<span style={{ color: "rgba(255,255,255,0.4)" }}>No open positions found. Upload a statement to see your positions.</span>} /> }}
-          rowClassName={(r) => r.risk_level === "High" ? "row-high-risk" : ""}
-          className="custom-table"
+          scroll={{ x: "max-content" }}
+          className="custom-table flex-table"
           style={{ background: "transparent" }}
+          locale={{ emptyText: <Empty description={<span style={{ color: "rgba(255,255,255,0.4)" }}>No positions found</span>} /> }}
+          rowClassName={(r) => r.risk_level === "High" ? "row-high-risk" : ""}
         />
       </Card>
     </div>
