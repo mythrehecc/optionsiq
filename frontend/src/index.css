@@ -70,3 +70,12 @@ html, body { height: 100%; background: #0f0f23; font-family: 'Inter', -apple-sys
 /* Animations */
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 .ant-card { animation: fadeInUp 0.3s ease both; }
+/* Custom Table Styles */
+.custom-table .ant-table { background: transparent !important; color: #fff !important; }
+.custom-table .ant-table-thead > tr > th { background: rgba(255, 255, 255, 0.02) !important; color: rgba(255, 255, 255, 0.45) !important; border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.custom-table .ant-table-tbody > tr > td { border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important; padding: 12px 16px !important; }
+.custom-table .ant-table-tbody > tr:hover > td { background: rgba(255, 255, 255, 0.02) !important; }
+.flex-table .ant-table-container { display: flex !important; flex-direction: column !important; }
+.flex-table .ant-table-body { flex: 1 1 auto !important; }
+.flex-table { height: auto !important; transition: all 0.3s ease !important; }
+.flex-table .ant-table-content { overflow-x: auto !important; scrollbar-width: thin !important; }
