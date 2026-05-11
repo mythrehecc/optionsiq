@@ -261,7 +261,6 @@ export default function DashboardPage() {
   const momChartData = monthlySummaries.map((m) => ({
     month: dayjs(m.month_year).format("MMM YY"),
     premium: m.premium_collected,
-    pnl: m.net_pnl,
     fees: m.total_fees,
   }));
 
@@ -340,7 +339,7 @@ export default function DashboardPage() {
           )}
         </Card>
       ) : (
-        <>
+        <div>
           {/* Section 1: Overall Summary */}
           <div style={{ marginBottom: 28 }}>
             <Title level={4} style={{ color: "#fff", marginBottom: 16, fontWeight: 700 }}>Overall Summary</Title>
@@ -349,30 +348,6 @@ export default function DashboardPage() {
                 <Col xs={24} sm={12} md={4}>
                   <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, display: "block", marginBottom: 4 }}>OPENING CASH</Text>
                   <Text style={{ color: "#fff", fontSize: 20, fontWeight: 700 }}>${summary.opening_cash_balance?.toLocaleString() || "—"}</Text>
-                </Col>
-                <Col xs={24} sm={12} md={4}>
-                  <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, display: "block", marginBottom: 4 }}>NET P&L</Text>
-                  <Text style={{ color: summary.net_pnl >= 0 ? "#10b981" : "#f43f5e", fontSize: 20, fontWeight: 700 }}>
-                    {summary.net_pnl >= 0 ? "+" : "-"}${Math.abs(summary.net_pnl).toLocaleString()}
-                  </Text>
-                </Col>
-                <Col xs={24} sm={12} md={6}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                    <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 12 }}>TAX TO BE PAID</Text>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Rate:</Text>
-                      <InputNumber 
-                        size="small" 
-                        min={0} max={100} value={taxRate} 
-                        onChange={(v) => setTaxRate(v || 0)} 
-                        style={{ width: 55, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff" }}
-                      />
-                      <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>%</Text>
-                    </div>
-                  </div>
-                  <Text style={{ color: "#f59e0b", fontSize: 20, fontWeight: 700 }}>
-                    ${(Math.max(0, summary.net_pnl) * (taxRate / 100)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </Text>
                 </Col>
                 <Col xs={24} sm={12} md={5}>
                   <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, display: "block", marginBottom: 4 }}>TOTAL BUYING POWER</Text>
@@ -390,9 +365,6 @@ export default function DashboardPage() {
           <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
             <Col xs={24} sm={12} xl={5}>
               <StatCard title="Cash Balance" value={summary.cash_balance} prefix="$" delta={summary.balance_delta} color="#6366f1" icon={<DollarOutlined />} />
-            </Col>
-            <Col xs={24} sm={12} xl={4}>
-              <StatCard title="Net P&L" value={summary.net_pnl} prefix="$" color={summary.net_pnl >= 0 ? "#10b981" : "#f43f5e"} icon={<RiseOutlined />} />
             </Col>
             <Col xs={24} sm={12} xl={5}>
               <StatCard title="Premium Collected" value={summary.premium_collected} prefix="$" color="#22d3ee" icon={<ThunderboltOutlined />} />
@@ -477,7 +449,7 @@ export default function DashboardPage() {
           {/* Section 2: Month over Month Performance */}
           <div style={{ marginTop: 24 }}>
             <Title level={4} style={{ color: "#fff", marginBottom: 16, fontWeight: 700 }}>Month-over-month Performance</Title>
-            <Card style={cardStyle} bodyStyle={{ padding: 0 }}>
+            <Card style={cardStyle} styles={{ body: { padding: 0 } }}>
               <Table 
                 dataSource={monthlySummaries}
                 pagination={{
@@ -532,19 +504,6 @@ export default function DashboardPage() {
                     render: (val) => <Text style={{ color: val < 0 ? "#f43f5e" : "rgba(255,255,255,0.45)" }}>{val < 0 ? `-$${Math.abs(val).toLocaleString()}` : "—"}</Text>
                   },
                   {
-                    title: "NET P&L",
-                    dataIndex: "net_pnl",
-                    render: (val) => <Text style={{ color: val >= 0 ? "#10b981" : "#f43f5e", fontWeight: 700 }}>{val >= 0 ? "+" : "-"}${Math.abs(val).toLocaleString()}</Text>
-                  },
-                  {
-                    title: "TAX",
-                    render: (_, record) => (
-                      <Text style={{ color: "rgba(255,255,255,0.45)" }}>
-                        ${(Math.max(0, record.net_pnl) * (taxRate / 100)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </Text>
-                    )
-                  },
-                  {
                     title: "COMMISSION",
                     dataIndex: "commissions_paid",
                     render: (val) => <Text style={{ color: "rgba(255,255,255,0.45)" }}>${val?.toLocaleString()}</Text>
@@ -580,7 +539,7 @@ export default function DashboardPage() {
                 ))}
               </div>
             )}
-            <Card style={cardStyle} bodyStyle={{ padding: 0 }}>
+            <Card style={cardStyle} styles={{ body: { padding: 0 } }}>
               <Table
                 dataSource={positions}
                 rowKey="trade_id"
@@ -642,14 +601,12 @@ export default function DashboardPage() {
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
               {(() => {
                 const totalPremium = monthlySummaries.reduce((s, m) => s + m.premium_collected, 0);
-                const totalPnl = monthlySummaries.reduce((s, m) => s + m.net_pnl, 0);
                 const totalFees = monthlySummaries.reduce((s, m) => s + m.total_fees, 0);
                 const totalFills = monthlySummaries.reduce((s, m) => s + m.total_fills, 0);
-                const winMonths = monthlySummaries.filter((m) => m.net_pnl > 0).length;
+                const winMonths = monthlySummaries.filter((m) => m.premium_collected > 0).length;
                 const winRate = monthlySummaries.length > 0 ? ((winMonths / monthlySummaries.length) * 100).toFixed(1) : "—";
                 return [
                   { title: "Total Premium", value: totalPremium, prefix: "$", color: "#6366f1" },
-                  { title: "Total Net P&L", value: totalPnl, prefix: "$", color: totalPnl >= 0 ? "#10b981" : "#f43f5e" },
                   { title: "Total Fees", value: totalFees, prefix: "$", color: "#f59e0b" },
                   { title: "Win Rate", value: winRate, suffix: "%", color: "#22d3ee" },
                   { title: "Total Fills", value: totalFills, color: "#a78bfa" },
@@ -701,23 +658,7 @@ export default function DashboardPage() {
               </Col>
             </Row>
 
-            {/* Net P&L Trend + Ticker Table */}
-            <Row gutter={[16, 16]}>
-              <Col xs={24} xl={14}>
-                <Card title={<span style={{ color: "#fff", fontWeight: 700 }}>Net P&L Trend</span>} style={cardStyle} bodyStyle={{ padding: "16px 8px" }}>
-                  {momChartData.length === 0 ? <Empty description={<span style={{ color: "rgba(255,255,255,0.4)" }}>No data</span>} /> : (
-                    <ResponsiveContainer width="100%" height={240}>
-                      <LineChart data={momChartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                        <XAxis dataKey="month" tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} />
-                        <Tooltip contentStyle={{ background: "#1a1a2e", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 10, color: "#fff" }} formatter={(v: any) => [`$${Number(v).toFixed(2)}`]} />
-                        <Line type="monotone" dataKey="pnl" name="Net P&L" stroke="#22d3ee" strokeWidth={2.5} dot={{ fill: "#22d3ee", r: 4 }} activeDot={{ r: 6 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  )}
-                </Card>
-              </Col>
+            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
               <Col xs={24} xl={10}>
                 <Card title={<span style={{ color: "#fff", fontWeight: 700 }}>Ticker P&L Breakdown</span>} style={cardStyle} bodyStyle={{ padding: 0 }}>
                   <Table
@@ -736,7 +677,7 @@ export default function DashboardPage() {
               </Col>
             </Row>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

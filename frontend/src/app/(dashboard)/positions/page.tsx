@@ -115,10 +115,6 @@ export default function PositionsPage() {
     },
   ];
 
-  if (isLoading) {
-    return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh" }}><Spin size="large" /></div>;
-  }
-
   const highRisk = positions.filter((p) => p.risk_level === "High").length;
   const medRisk = positions.filter((p) => p.risk_level === "Medium").length;
 
@@ -150,6 +146,7 @@ export default function PositionsPage() {
           dataSource={positions}
           columns={columns}
           rowKey="trade_id"
+          loading={isLoading} // Handled directly inside the Table props now
           pagination={{ 
             current: posPage,
             pageSize: posPageSize,
@@ -160,8 +157,12 @@ export default function PositionsPage() {
             style: { padding: "16px 24px", borderTop: "1px solid rgba(255,255,255,0.06)" }
           }}
           onChange={(pagination) => {
-            setPosPage(pagination.current || 1);
-            setPosPageSize(pagination.pageSize || 15);
+            if (pagination.pageSize && pagination.pageSize !== posPageSize) {
+              setPosPageSize(pagination.pageSize);
+              setPosPage(1); // Reset to first page when changing items per page
+            } else if (pagination.current) {
+              setPosPage(pagination.current);
+            }
           }}
           scroll={{ x: "max-content" }}
           className="custom-table flex-table"
