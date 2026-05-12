@@ -1,6 +1,6 @@
 "use client";
-import React, { useEffect, useCallback, useState } from "react";
-import { Card, Table, Tag, Typography, Empty, Spin, Tooltip, Badge, Space } from "antd";
+import React, { useEffect, useRef, useState } from "react";
+import { Card, Table, Tag, Typography, Empty, Spin } from "antd";
 import { WarningOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 import { useDashboard } from "@/context/DashboardContext";
 import { dashboardApi } from "@/services/api";
@@ -17,56 +17,106 @@ const cardStyle = {
 };
 
 const riskColors: Record<string, string> = { High: "#f43f5e", Medium: "#f59e0b", Low: "#10b981" };
-const riskBg: Record<string, string> = { High: "rgba(244,63,94,0.12)", Medium: "rgba(245,158,11,0.12)", Low: "rgba(16,185,129,0.12)" };
+const riskBg: Record<string, string> = {
+  High: "rgba(244,63,94,0.12)",
+  Medium: "rgba(245,158,11,0.12)",
+  Low: "rgba(16,185,129,0.12)",
+};
 
 export default function PositionsPage() {
   const [posPage, setPosPage] = useState(1);
   const [posPageSize, setPosPageSize] = useState(15);
-  const { selectedAccount, selectedStatementId, positions, setPositions, totalPositions, setTotalPositions, isLoading, setLoading } = useDashboard();
+  const {
+    selectedAccount,
+    selectedStatementId,
+    positions,
+    setPositions,
+    totalPositions,
+    setTotalPositions,
+    isLoading,
+    setLoading,
+  } = useDashboard();
 
-  const load = useCallback(async () => {
+  // Track previous filters so we can reset page when they change
+  const prevFilters = useRef({ selectedAccount, selectedStatementId });
+
+  useEffect(() => {
+    // Reset to page 1 if account/statement filter changed
+    const prev = prevFilters.current;
+    const filtersChanged =
+      prev.selectedAccount !== selectedAccount ||
+      prev.selectedStatementId !== selectedStatementId;
+
+    const page = filtersChanged ? 1 : posPage;
+    if (filtersChanged) {
+      setPosPage(1);
+      prevFilters.current = { selectedAccount, selectedStatementId };
+    }
+
+    let cancelled = false;
     setLoading(true);
-    try {
-      const res = await dashboardApi.positions({ accountId: selectedAccount, statementId: selectedStatementId, page: posPage, per_page: posPageSize });
-      setPositions(res.data.positions || []);
-      setTotalPositions(res.data.total || 0);
-    } catch {}
-    setLoading(false);
+
+    dashboardApi
+      .positions({
+        accountId: selectedAccount,
+        statementId: selectedStatementId,
+        page,
+        per_page: posPageSize,
+      })
+      .then((res) => {
+        if (!cancelled) {
+          setPositions(res.data.positions || []);
+          setTotalPositions(res.data.total || 0);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAccount, selectedStatementId, posPage, posPageSize]);
 
-  useEffect(() => { load(); }, [load]);
-
-  // Reset to first page when filters change
-  useEffect(() => {
-    setPosPage(1);
-  }, [selectedAccount, selectedStatementId]);
+  const highRisk = positions.filter((p) => p.risk_level === "High").length;
+  const medRisk = positions.filter((p) => p.risk_level === "Medium").length;
 
   const columns = [
     {
       title: "Ticker",
       dataIndex: "ticker",
       key: "ticker",
-      render: (t: string) => <Text style={{ color: "#6366f1", fontWeight: 700, fontSize: 15 }}>{t}</Text>,
-      sorter: (a: Trade, b: Trade) => a.ticker.localeCompare(b.ticker),
+      render: (t: string) => (
+        <Text style={{ color: "#6366f1", fontWeight: 700, fontSize: 15 }}>{t}</Text>
+      ),
     },
     {
       title: "Strategy",
       dataIndex: "strategy",
       key: "strategy",
-      render: (s: string) => <Tag color="purple" style={{ fontWeight: 500 }}>{s || "Other"}</Tag>,
+      render: (s: string) => (
+        <Tag color="purple" style={{ fontWeight: 500 }}>
+          {s || "Other"}
+        </Tag>
+      ),
     },
     {
       title: "Type",
       dataIndex: "option_type",
       key: "option_type",
-      render: (t: string) => <Tag color={t === "PUT" ? "red" : t === "CALL" ? "green" : "blue"}>{t || "—"}</Tag>,
+      render: (t: string) => (
+        <Tag color={t === "PUT" ? "red" : t === "CALL" ? "green" : "blue"}>{t || "—"}</Tag>
+      ),
     },
     {
       title: "Strike",
       key: "strikes",
       render: (_: any, r: Trade) => (
         <Text style={{ color: "rgba(255,255,255,0.8)", fontFamily: "monospace" }}>
-          {r.strike_short ?? "—"}{r.strike_long ? ` / ${r.strike_long}` : ""}
+          {r.strike_short ?? "—"}
+          {r.strike_long ? ` / ${r.strike_long}` : ""}
         </Text>
       ),
     },
@@ -74,8 +124,11 @@ export default function PositionsPage() {
       title: "Expiry",
       dataIndex: "expiration_date",
       key: "expiration_date",
-      render: (d: string) => <Text style={{ color: "rgba(255,255,255,0.7)" }}>{d ? dayjs(d).format("MMM D, YYYY") : "—"}</Text>,
-      sorter: (a: Trade, b: Trade) => (a.expiration_date || "").localeCompare(b.expiration_date || ""),
+      render: (d: string) => (
+        <Text style={{ color: "rgba(255,255,255,0.7)" }}>
+          {d ? dayjs(d).format("MMM D, YYYY") : "—"}
+        </Text>
+      ),
     },
     {
       title: "DTE",
@@ -86,56 +139,93 @@ export default function PositionsPage() {
           {d ?? "—"} days
         </Tag>
       ),
-      sorter: (a: Trade, b: Trade) => (a.dte ?? 999) - (b.dte ?? 999),
     },
     {
       title: "Contracts",
       dataIndex: "contracts",
       key: "contracts",
-      render: (c: number) => <Text style={{ color: "rgba(255,255,255,0.7)" }}>{c ?? "—"}</Text>,
+      render: (c: number) => (
+        <Text style={{ color: "rgba(255,255,255,0.7)" }}>{c ?? "—"}</Text>
+      ),
     },
     {
       title: "Premium/Contract",
       dataIndex: "premium_per_contract",
       key: "premium_per_contract",
-      render: (v: number) => <Text style={{ color: "#22d3ee", fontWeight: 600 }}>{v != null ? `$${v.toFixed(2)}` : "—"}</Text>,
+      render: (v: number) => (
+        <Text style={{ color: "#22d3ee", fontWeight: 600 }}>
+          {v != null ? `$${v.toFixed(2)}` : "—"}
+        </Text>
+      ),
     },
     {
       title: "Risk",
       dataIndex: "risk_level",
       key: "risk_level",
       render: (r: string) => (
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: riskBg[r] || "transparent", borderRadius: 8, padding: "3px 10px" }}>
-          {r === "High" ? <WarningOutlined style={{ color: riskColors[r] }} /> : r === "Medium" ? <ExclamationCircleOutlined style={{ color: riskColors[r] }} /> : <CheckCircleOutlined style={{ color: riskColors[r] }} />}
-          <Text style={{ color: riskColors[r] || "#fff", fontWeight: 700, fontSize: 12 }}>{r}</Text>
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            background: riskBg[r] || "transparent",
+            borderRadius: 8,
+            padding: "3px 10px",
+          }}
+        >
+          {r === "High" ? (
+            <WarningOutlined style={{ color: riskColors[r] }} />
+          ) : r === "Medium" ? (
+            <ExclamationCircleOutlined style={{ color: riskColors[r] }} />
+          ) : (
+            <CheckCircleOutlined style={{ color: riskColors[r] }} />
+          )}
+          <Text style={{ color: riskColors[r] || "#fff", fontWeight: 700, fontSize: 12 }}>
+            {r}
+          </Text>
         </div>
       ),
-      filters: [{ text: "High", value: "High" }, { text: "Medium", value: "Medium" }, { text: "Low", value: "Low" }],
+      filters: [
+        { text: "High", value: "High" },
+        { text: "Medium", value: "Medium" },
+        { text: "Low", value: "Low" },
+      ],
       onFilter: (v: any, r: Trade) => r.risk_level === v,
     },
   ];
 
-  const highRisk = positions.filter((p) => p.risk_level === "High").length;
-  const medRisk = positions.filter((p) => p.risk_level === "Medium").length;
-
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <Title level={3} style={{ color: "#fff", margin: 0, fontWeight: 800 }}>📊 Open Positions</Title>
-        <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 13 }}>Positions with future expiration dates — sorted by DTE</Text>
+        <Title level={3} style={{ color: "#fff", margin: 0, fontWeight: 800 }}>
+          📊 Open Positions
+        </Title>
+        <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 13 }}>
+          Positions with future expiration dates — sorted by DTE
+        </Text>
       </div>
 
       {/* Risk Summary */}
-      {positions.length > 0 && (
+      {totalPositions > 0 && (
         <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
           {[
-            { label: "Total Positions", value: positions.length, color: "#6366f1" },
+            { label: "Total Positions", value: totalPositions, color: "#6366f1" },
             { label: "High Risk (DTE < 7)", value: highRisk, color: "#f43f5e" },
             { label: "Medium Risk (DTE ≤ 21)", value: medRisk, color: "#f59e0b" },
           ].map((item) => (
-            <div key={item.label} style={{ background: "rgba(255,255,255,0.04)", borderRadius: 12, padding: "12px 20px", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <div
+              key={item.label}
+              style={{
+                background: "rgba(255,255,255,0.04)",
+                borderRadius: 12,
+                padding: "12px 20px",
+                border: "1px solid rgba(255,255,255,0.08)",
+              }}
+            >
               <div style={{ color: item.color, fontSize: 24, fontWeight: 800 }}>{item.value}</div>
-              <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginTop: 2 }}>{item.label}</div>
+              <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginTop: 2 }}>
+                {item.label}
+              </div>
             </div>
           ))}
         </div>
@@ -146,29 +236,45 @@ export default function PositionsPage() {
           dataSource={positions}
           columns={columns}
           rowKey="trade_id"
-          loading={isLoading} // Handled directly inside the Table props now
-          pagination={{ 
+          loading={isLoading}
+          pagination={{
             current: posPage,
             pageSize: posPageSize,
             total: totalPositions,
             showSizeChanger: true,
             pageSizeOptions: ["15", "30", "50", "100"],
-            showTotal: (total) => `Total ${total} positions`,
-            style: { padding: "16px 24px", borderTop: "1px solid rgba(255,255,255,0.06)" }
+            showTotal: (total, range) =>
+              `${range[0]}–${range[1]} of ${total} positions`,
+            style: {
+              padding: "16px 24px",
+              borderTop: "1px solid rgba(255,255,255,0.06)",
+            },
           }}
-          onChange={(pagination) => {
-            if (pagination.pageSize && pagination.pageSize !== posPageSize) {
-              setPosPageSize(pagination.pageSize);
-              setPosPage(1); // Reset to first page when changing items per page
-            } else if (pagination.current) {
-              setPosPage(pagination.current);
+          onChange={(paginationInfo) => {
+            const newPage = paginationInfo.current ?? 1;
+            const newSize = paginationInfo.pageSize ?? posPageSize;
+            if (newSize !== posPageSize) {
+              // Page size changed — reset to page 1
+              setPosPageSize(newSize);
+              setPosPage(1);
+            } else {
+              // Only page number changed
+              setPosPage(newPage);
             }
           }}
           scroll={{ x: "max-content" }}
           className="custom-table flex-table"
           style={{ background: "transparent" }}
-          locale={{ emptyText: <Empty description={<span style={{ color: "rgba(255,255,255,0.4)" }}>No positions found</span>} /> }}
-          rowClassName={(r) => r.risk_level === "High" ? "row-high-risk" : ""}
+          locale={{
+            emptyText: (
+              <Empty
+                description={
+                  <span style={{ color: "rgba(255,255,255,0.4)" }}>No positions found</span>
+                }
+              />
+            ),
+          }}
+          rowClassName={(r) => (r.risk_level === "High" ? "row-high-risk" : "")}
         />
       </Card>
     </div>
