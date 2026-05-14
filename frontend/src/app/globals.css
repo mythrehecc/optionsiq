@@ -3,83 +3,243 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 15, 15, 35;
+  --background-end-rgb: 15, 15, 35;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
-}
+/* ─── Base ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
 
 body {
   color: #fff;
   background: #0f0f23;
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Custom Table Styles */
+/* ─── Dashboard Layout ───────────────────────────────── */
+.dashboard-page {
+  padding: 24px;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* ─── Marquee Animation ──────────────────────────────── */
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* ─── Ant Design Core Overrides ─────────────────────── */
+.ant-layout { background: transparent !important; }
+
+/* Prevent default Ant sider from creating invisible gap */
+.ant-layout-sider {
+  overflow: hidden !important;
+  flex-shrink: 0;
+}
+
+.ant-select-selector {
+  background: rgba(255,255,255,0.06) !important;
+  border-color: rgba(99,102,241,0.3) !important;
+  color: #fff !important;
+  border-radius: 8px !important;
+}
+.ant-select-selection-placeholder { color: rgba(255,255,255,0.35) !important; }
+.ant-select-arrow { color: rgba(255,255,255,0.4) !important; }
+.ant-select-dropdown {
+  background: #1a1a2e !important;
+  border: 1px solid rgba(99,102,241,0.2) !important;
+  border-radius: 10px !important;
+}
+.ant-select-item { color: rgba(255,255,255,0.8) !important; }
+.ant-select-item-option-active,
+.ant-select-item-option-selected {
+  background: rgba(99,102,241,0.15) !important;
+  color: #fff !important;
+}
+
+.ant-card-head {
+  border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+  color: #fff !important;
+}
+
+.ant-statistic-title { color: rgba(255,255,255,0.45) !important; }
+.ant-progress-inner { background-color: rgba(255,255,255,0.05) !important; }
+
+/* ─── Sidebar Menu ───────────────────────────────────── */
+.ant-menu-dark .ant-menu-item,
+.ant-menu-dark .ant-menu-item a {
+  color: rgba(255,255,255,0.6) !important;
+  border-radius: 8px !important;
+  margin: 2px 8px !important;
+  transition: all 0.2s ease;
+}
+.ant-menu-dark .ant-menu-item:hover,
+.ant-menu-dark .ant-menu-item-selected {
+  background: rgba(99,102,241,0.15) !important;
+  color: #fff !important;
+}
+.ant-menu-dark .ant-menu-item-selected {
+  border-left: 3px solid #6366f1 !important;
+}
+
+/* ─── Tables ─────────────────────────────────────────── */
 .custom-table .ant-table {
   background: transparent !important;
   color: #fff !important;
 }
-
 .custom-table .ant-table-thead > tr > th {
-  background: rgba(255, 255, 255, 0.02) !important;
-  color: rgba(255, 255, 255, 0.45) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255,255,255,0.02) !important;
+  color: rgba(255,255,255,0.45) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.06) !important;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  white-space: nowrap;
 }
-
 .custom-table .ant-table-tbody > tr > td {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
-  padding: 16px !important;
+  border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+  padding: 12px 16px !important;
+  color: rgba(255,255,255,0.85) !important;
 }
-
 .custom-table .ant-table-tbody > tr:hover > td {
-  background: rgba(255, 255, 255, 0.02) !important;
+  background: rgba(255,255,255,0.03) !important;
+}
+.custom-table .ant-pagination-item a { color: rgba(255,255,255,0.7) !important; }
+.custom-table .ant-pagination-item-active { border-color: #6366f1 !important; }
+.custom-table .ant-pagination-item-active a { color: #6366f1 !important; }
+
+/* High-risk row highlight */
+.row-high-risk > td { border-left: 3px solid rgba(244,63,94,0.6) !important; }
+.row-med-risk  > td { border-left: 3px solid rgba(245,158,11,0.4) !important; }
+
+/* Scrollable table wrapper */
+.flex-table .ant-table-content { overflow-x: auto !important; scrollbar-width: thin; }
+.flex-table .ant-table { min-width: 600px; }
+
+/* ─── Scrollbars ─────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.4); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.7); }
+
+/* ─── Animations ─────────────────────────────────────── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeInUp 0.35s ease forwards; }
+
+/* ─── Responsive: Tablet (≤1024px) ─────────────────── */
+@media (max-width: 1024px) {
+  .dashboard-page {
+    padding: 16px;
+  }
 }
 
-.ant-statistic-title {
-  color: rgba(255, 255, 255, 0.45) !important;
+/* ─── Responsive: Laptop (768px–1199px) ─────────────── */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .dashboard-page {
+    padding: 14px;
+  }
+  .dashboard-header {
+    margin-bottom: 14px;
+  }
+  /* Chart smaller on laptop */
+  .recharts-responsive-container {
+    height: 220px !important;
+  }
+  /* Table cells tighter */
+  .custom-table .ant-table-tbody > tr > td {
+    padding: 8px 12px !important;
+    font-size: 13px;
+  }
+  .custom-table .ant-table-thead > tr > th {
+    padding: 8px 12px !important;
+  }
+  /* Smaller card body */
+  .ant-card-body {
+    padding: 14px 16px !important;
+  }
 }
 
-.ant-card-head {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+/* ─── Responsive: Mobile (≤768px) ───────────────────── */
+@media (max-width: 768px) {
+  .dashboard-page {
+    padding: 10px;
+  }
+
+  .dashboard-header {
+    margin-bottom: 14px;
+  }
+  .dashboard-header h3.ant-typography,
+  .dashboard-header .ant-typography h3 {
+    font-size: 18px !important;
+  }
+
+  /* Header padding */
+  .ant-layout-header {
+    padding: 0 12px !important;
+    height: 56px !important;
+    line-height: 56px !important;
+  }
+
+  /* Content margin */
+  .ant-layout-content {
+    margin: 8px !important;
+  }
+
+  /* Tables: always horizontal scroll on mobile */
+  .ant-table-wrapper { overflow-x: auto !important; }
+
+  /* Pagination smaller */
+  .ant-pagination { flex-wrap: wrap; gap: 4px; font-size: 12px; }
+
+  /* Stat card value font */
+  .ant-card-body .ant-typography[style*="font-size: 26"],
+  .ant-card-body [style*="fontSize: 26"] {
+    font-size: 18px !important;
+  }
+
+  /* Chart container */
+  .recharts-responsive-container { min-height: 180px !important; }
+
+  /* Header selects shrink */
+  .ant-layout-header .ant-select { max-width: 130px !important; font-size: 12px !important; }
+
+  /* Typography scale-down */
+  h1.ant-typography, .ant-typography h1 { font-size: 20px !important; }
+  h3.ant-typography, .ant-typography h3 { font-size: 16px !important; }
+  h4.ant-typography, .ant-typography h4 { font-size: 14px !important; }
+
+  /* Stack Ant Design Row columns to full width on mobile */
+  /* Only inside dashboard-page to avoid breaking other layouts */
+  .dashboard-page .ant-col-xs-24 {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
 }
 
-.ant-progress-inner {
-  background-color: rgba(255, 255, 255, 0.05) !important;
-}
-
-/* Flex Table for dynamic height */
-.flex-table .ant-table-container {
-  display: flex;
-  flex-direction: column;
-}
-
-.flex-table .ant-table-body {
-  flex: 1 1 auto;
-}
-
-.flex-table {
-  height: auto !important;
-  transition: all 0.3s ease;
-}
-
-.flex-table .ant-table-content {
-  overflow-x: auto !important;
-  scrollbar-width: thin;
-}
-
-.flex-table .ant-table-tbody > tr > td {
-  padding: 12px 16px !important; /* Slightly more compact */
+/* ─── Responsive: Small mobile (≤480px) ─────────────── */
+@media (max-width: 480px) {
+  .dashboard-page { padding: 8px; }
+  .ant-layout-header { padding: 0 8px !important; }
+  .ant-layout-header .ant-select { max-width: 110px !important; font-size: 11px !important; }
+  .ant-space { gap: 4px !important; }
 }

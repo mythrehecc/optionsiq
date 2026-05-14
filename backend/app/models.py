@@ -89,6 +89,7 @@ class Trade(db.Model):
     commissions = db.Column(db.Numeric(8, 2), default=0)
     misc_fees = db.Column(db.Numeric(8, 2), default=0)
     running_balance = db.Column(db.Numeric(15, 2), nullable=True)
+    description = db.Column(db.Text, nullable=True)  # raw CSV description text
 
     def to_dict(self):
         return {
@@ -107,6 +108,7 @@ class Trade(db.Model):
             "commissions": float(self.commissions),
             "misc_fees": float(self.misc_fees),
             "running_balance": float(self.running_balance) if self.running_balance else None,
+            "description": self.description,
         }
 
 

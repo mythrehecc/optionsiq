@@ -1,25 +1,21 @@
 import React, { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import {
-  Layout as AntLayout,
-  Menu,
-  Button,
-  Avatar,
-  Dropdown,
-  Space,
-  Typography,
-  Select,
-  message,
-} from 'antd';
-import {
-  DashboardOutlined,
-  FileTextOutlined,
-  BarChartOutlined,
-  LineChartOutlined,
-  UserOutlined,
-  LogoutOutlined,
-  BellOutlined,
-} from '@ant-design/icons';
+import AntLayout from 'antd/lib/layout';
+import Menu from 'antd/lib/menu';
+import Button from 'antd/lib/button';
+import Avatar from 'antd/lib/avatar';
+import Dropdown from 'antd/lib/dropdown';
+import Space from 'antd/lib/space';
+import Typography from 'antd/lib/typography';
+import Select from 'antd/lib/select';
+import message from 'antd/lib/message';
+import DashboardOutlined from '@ant-design/icons/DashboardOutlined';
+import FileTextOutlined from '@ant-design/icons/FileTextOutlined';
+import BarChartOutlined from '@ant-design/icons/BarChartOutlined';
+import LineChartOutlined from '@ant-design/icons/LineChartOutlined';
+import UserOutlined from '@ant-design/icons/UserOutlined';
+import LogoutOutlined from '@ant-design/icons/LogoutOutlined';
+import BellOutlined from '@ant-design/icons/BellOutlined';
 import { useAuth } from '@/context/AuthContext';
 import { useDashboard } from '@/context/DashboardContext';
 

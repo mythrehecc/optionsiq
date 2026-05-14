@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
-import { ConfigProvider, theme } from "antd";
+import ConfigProvider from "antd/lib/config-provider";
+import theme from "antd/lib/theme";
 import { AuthProvider } from "@/context/AuthContext";
 import { DashboardProvider } from "@/context/DashboardContext";
 

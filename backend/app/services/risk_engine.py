@@ -1,11 +1,9 @@
 """
 Risk Engine — generates structured risk alerts from a list of Trade objects.
 """
-
 from datetime import date
 from collections import defaultdict
 from typing import Any
-
 
 def generate_alerts(trades: list) -> list[dict[str, Any]]:
     alerts = []
@@ -52,46 +50,44 @@ def generate_alerts(trades: list) -> list[dict[str, Any]]:
             })
 
     # --- DASH-13: Tickers rolled more than once ---
-    roll_counts: dict = defaultdict(int)
+    roll_counts = defaultdict(int)
     for t in trades:
         if t.strategy and "roll" in t.strategy.lower():
             roll_counts[t.ticker] += 1
-
-    # Also detect VERT ROLL pattern by counting closing + reopening trades
-    ticker_trade_counts: dict = defaultdict(int)
-    for t in trades:
-        ticker_trade_counts[t.ticker] += 1
 
     for ticker, count in roll_counts.items():
         if count > 1:
             alerts.append({
                 "severity": "Medium",
                 "title": f"{ticker}: Rolled more than once",
-                "description": (
-                    f"{ticker} has been rolled {count} time{'s' if count != 1 else ''}. "
-                    f"Repeated rolls can indicate a losing position that is being deferred rather than managed."
-                ),
+                "description": f"{ticker} has been rolled {count} times. Repeated rolls can indicate a losing position.",
                 "ticker": ticker,
                 "alert_type": "repeated_roll",
             })
 
-    # --- DASH-14: Concentration risk (single ticker > 25% of total premium) ---
-    total_premium = sum(float(t.gross_amount) for t in trades if t.trade_type == "TRD" and float(t.gross_amount) > 0)
-    ticker_premium: dict = defaultdict(float)
+    # --- DASH-14: Concentration risk (CONSISTENT WITH PARSER/DASHBOARD) ---
+    # We now use t.gross_amount directly since the parser saves (unit * price * 100) there.
+    ticker_premium = defaultdict(float)
+    total_premium = 0.0
+
     for t in trades:
-        if t.trade_type == "TRD" and float(t.gross_amount) > 0:
-            ticker_premium[t.ticker] += float(t.gross_amount)
+        if t.trade_type == "TRD":
+            # Convert to float to ensure mathematical consistency
+            val = float(t.gross_amount or 0.0)
+            if val > 0:
+                ticker_premium[t.ticker] += val
+                total_premium += val
 
     if total_premium > 0:
         for ticker, prem in ticker_premium.items():
-            pct = prem / total_premium * 100
+            pct = (prem / total_premium) * 100
             if pct > 25:
                 alerts.append({
                     "severity": "Medium",
                     "title": f"{ticker}: Concentration risk ({pct:.0f}% of premium)",
                     "description": (
-                        f"{ticker} accounts for {pct:.0f}% of your total premium collected. "
-                        f"High concentration in a single underlying increases portfolio risk."
+                        f"{ticker} accounts for {pct:.0f}% of your total premium collected (${prem:,.2f}). "
+                        f"High concentration increases portfolio risk."
                     ),
                     "ticker": ticker,
                     "alert_type": "concentration",
@@ -100,17 +96,13 @@ def generate_alerts(trades: list) -> list[dict[str, Any]]:
     # --- DASH-15: Assignment events ---
     assignments = [t for t in trades if t.trade_type == "EXP"]
     for a in assignments:
-        cost = abs(float(a.gross_amount))
+        cost = abs(float(a.gross_amount or 0.0))
         alerts.append({
             "severity": "Low",
-            "title": f"{a.ticker}: Assignment on {a.trade_date.strftime('%b %d, %Y') if a.trade_date else 'unknown'}",
-            "description": (
-                f"You were assigned {a.ticker} shares on {a.trade_date.strftime('%b %d, %Y') if a.trade_date else 'the recorded date'}. "
-                f"Cash outflow: ${cost:,.2f}. Review your cost basis and decide whether to sell or hold."
-            ),
+            "title": f"{a.ticker}: Assignment",
+            "description": f"You were assigned {a.ticker} shares. Cash outflow: ${cost:,.2f}.",
             "ticker": a.ticker,
             "alert_type": "assignment",
-            "cost": cost,
         })
 
     # Sort: High → Medium → Low

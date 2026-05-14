@@ -1,18 +1,30 @@
 "use client";
-import React, { useEffect, useCallback, useState } from "react";
-import { Row, Col, Card, Statistic, Tag, Typography, Table, Empty, Spin, Badge, Button, InputNumber, Progress, Tooltip as AntTooltip } from "antd";
-import { ArrowUpOutlined, ArrowDownOutlined, DollarOutlined, ThunderboltOutlined, WarningOutlined, RiseOutlined, UploadOutlined, FileTextOutlined, AppstoreOutlined, CalendarOutlined, CheckCircleFilled, CheckCircleOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
+import React, { useEffect, useCallback } from "react";
+import Row from "antd/lib/row";
+import Col from "antd/lib/col";
+import Card from "antd/lib/card";
+import Tag from "antd/lib/tag";
+import Typography from "antd/lib/typography";
+import Table from "antd/lib/table";
+import Spin from "antd/lib/spin";
+
+import Button from "antd/lib/button";
+import Empty from "antd/lib/empty";
+import ThunderboltOutlined from "@ant-design/icons/ThunderboltOutlined";
+import FileTextOutlined from "@ant-design/icons/FileTextOutlined";
+import AppstoreOutlined from "@ant-design/icons/AppstoreOutlined";
+import UploadOutlined from "@ant-design/icons/UploadOutlined";
+import WarningOutlined from "@ant-design/icons/WarningOutlined";
+import CheckCircleOutlined from "@ant-design/icons/CheckCircleOutlined";
+import ExclamationCircleOutlined from "@ant-design/icons/ExclamationCircleOutlined";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useRouter } from "next/navigation";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area, LineChart, Line } from "recharts";
 import { useAuth } from "@/context/AuthContext";
 import { useDashboard } from "@/context/DashboardContext";
-import { dashboardApi, statementsApi } from "@/services/api";
-import { Statement, Trade } from "@/types";
+import { dashboardApi } from "@/services/api";
 import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
-
-const PIE_COLORS = ["#6366f1", "#22d3ee", "#f59e0b", "#10b981", "#f43f5e", "#a78bfa", "#34d399"];
 
 const cardStyle = {
   background: "linear-gradient(135deg, rgba(26,26,46,0.9), rgba(22,33,62,0.9))",
@@ -21,663 +33,421 @@ const cardStyle = {
   boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
 };
 
-const StatCard = ({ title, value, prefix, suffix, delta, color, icon }: any) => (
-  <Card style={{ ...cardStyle, height: "100%" }} bodyStyle={{ padding: "20px 24px" }}>
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", minHeight: 80 }}>
-      <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
-        <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, fontWeight: 500, textTransform: "uppercase", letterSpacing: 1 }}>{title}</Text>
-        <div style={{ marginTop: 8 }}>
-          <span style={{ fontSize: 28, fontWeight: 800, color: color || "#fff" }}>
-            {prefix}{typeof value === "number" ? value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (value ?? "—")}
-            {suffix && <span style={{ fontSize: 14, fontWeight: 400, marginLeft: 4 }}>{suffix}</span>}
-          </span>
+const StatCard = ({ title, value, prefix, color, icon }: any) => (
+  <Card
+    style={{ ...cardStyle, height: "100%" }}
+    styles={{ body: { padding: "16px 20px" } }}
+  >
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {title}
         </div>
-        {delta !== null && delta !== undefined && (
-          <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
-            {delta >= 0 ? <ArrowUpOutlined style={{ color: "#10b981", fontSize: 12 }} /> : <ArrowDownOutlined style={{ color: "#f43f5e", fontSize: 12 }} />}
-            <Text style={{ color: delta >= 0 ? "#10b981" : "#f43f5e", fontSize: 12, fontWeight: 600 }}>
-              ${Math.abs(delta).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} vs prior period
-            </Text>
-          </div>
-        )}
+        <div style={{
+          fontSize: "clamp(16px, 2vw, 26px)",
+          fontWeight: 800,
+          color: color || "#fff",
+          lineHeight: 1.2,
+          wordBreak: "break-all",
+        }}>
+          {prefix}{typeof value === "number"
+            ? value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+            : (value ?? "—")}
+        </div>
       </div>
-      <div style={{ width: 44, height: 44, borderRadius: 12, background: `${color || "#6366f1"}20`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginLeft: "auto" }}>
-        {React.cloneElement(icon, { style: { fontSize: 22, color: color || "#6366f1" } })}
+      <div style={{ width: 38, height: 38, borderRadius: 10, background: `${color || "#6366f1"}20`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginLeft: 8 }}>
+        {React.cloneElement(icon, { style: { fontSize: 18, color: color || "#6366f1" } })}
       </div>
     </div>
   </Card>
 );
 
-const severityColor: Record<string, string> = { High: "#f43f5e", Medium: "#f59e0b", Low: "#10b981" };
-
-// ─── Statement Selector Bar ───────────────────────────────────────────────────
-interface StatementSelectorBarProps {
-  statements: Statement[];
-  selectedId: string | null;
-  onSelect: (id: string | null) => void;
-  onUpload: () => void;
-}
-
-function StatementSelectorBar({ statements, selectedId, onSelect, onUpload }: StatementSelectorBarProps) {
-  const sorted = [...statements].sort(
-    (a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime()
-  );
-
-  const chipBase: React.CSSProperties = {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-start",
-    gap: 4,
-    padding: "12px 16px",
-    borderRadius: 14,
-    cursor: "pointer",
-    border: "1px solid rgba(99,102,241,0.18)",
-    background: "rgba(26,26,46,0.85)",
-    transition: "all 0.2s ease",
-    minWidth: 180,
-    maxWidth: 220,
-    flexShrink: 0,
-    position: "relative",
-  };
-
-  const chipActive: React.CSSProperties = {
-    border: "1px solid #6366f1",
-    background: "linear-gradient(135deg, rgba(99,102,241,0.18), rgba(139,92,246,0.12))",
-    boxShadow: "0 0 0 2px rgba(99,102,241,0.25), 0 4px 16px rgba(99,102,241,0.15)",
-  };
-
-  const allActive = selectedId === null;
-
+// Severity badge showing "X days left"
+const SeverityBadge = ({ expirationDate }: { expirationDate: string | null }) => {
+  if (!expirationDate) return <Tag color="default">—</Tag>;
+  const daysLeft = dayjs(expirationDate).diff(dayjs().startOf("day"), "day");
+  const label = daysLeft < 0 ? "Expired" : daysLeft === 0 ? "Today!" : `${daysLeft} days left`;
+  const color = daysLeft < 0 ? "default" : daysLeft <= 10 ? "red" : daysLeft <= 20 ? "orange" : "green";
+  const icon = daysLeft <= 0 ? <WarningOutlined /> : daysLeft <= 10 ? <ExclamationCircleOutlined /> : <CheckCircleOutlined />;
   return (
-    <div style={{ marginBottom: 28 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <AppstoreOutlined style={{ color: "#6366f1", fontSize: 18 }} />
-          <Text style={{ color: "rgba(255,255,255,0.85)", fontWeight: 700, fontSize: 15 }}>
-            Analysing Statement
-          </Text>
-          {statements.length > 0 && (
-            <Tag color="purple" style={{ borderRadius: 20, fontSize: 11 }}>
-              {statements.length} file{statements.length > 1 ? "s" : ""}
-            </Tag>
-          )}
-        </div>
-        <Button
-          size="small"
-          icon={<UploadOutlined />}
-          onClick={onUpload}
-          style={{
-            background: "rgba(99,102,241,0.12)",
-            border: "1px solid rgba(99,102,241,0.35)",
-            color: "#a5b4fc",
-            borderRadius: 8,
-            fontWeight: 600,
-            fontSize: 12,
-          }}
-        >
-          Upload New
-        </Button>
-      </div>
+    <Tag color={color} icon={icon} style={{ fontWeight: 700 }}>
+      {label}
+    </Tag>
+  );
+};
 
-      <div
-        style={{
-          display: "flex",
-          gap: 12,
-          overflowX: "auto",
-          paddingBottom: 8,
-          scrollbarWidth: "thin",
-        }}
-      >
-        {/* All Statements chip */}
-        <div
-          style={{ ...chipBase, ...(allActive ? chipActive : {}), minWidth: 140 }}
-          onClick={() => onSelect(null)}
-        >
-          {allActive && (
-            <CheckCircleFilled
-              style={{ position: "absolute", top: 8, right: 8, color: "#6366f1", fontSize: 13 }}
-            />
-          )}
-          <AppstoreOutlined style={{ fontSize: 20, color: allActive ? "#a5b4fc" : "rgba(255,255,255,0.4)" }} />
-          <Text style={{ color: allActive ? "#fff" : "rgba(255,255,255,0.65)", fontWeight: 700, fontSize: 13, marginTop: 4 }}>
-            All Statements
-          </Text>
-          <Text style={{ color: "rgba(255,255,255,0.35)", fontSize: 11 }}>
-            Aggregated view
-          </Text>
-        </div>
-
-        {/* Per-file chips */}
-        {sorted.map((s) => {
-          const isActive = selectedId === s.statement_id;
-          const label = s.filename ? s.filename.replace(/\.csv$/i, "") : s.account_id;
-          const period = s.statement_start
-            ? `${dayjs(s.statement_start).format("MMM D")} – ${dayjs(s.statement_end).format("MMM D, YYYY")}`
-            : "—";
-          return (
-            <div
-              key={s.statement_id}
-              style={{ ...chipBase, ...(isActive ? chipActive : {}) }}
-              onClick={() => onSelect(s.statement_id)}
-            >
-              {isActive && (
-                <CheckCircleFilled
-                  style={{ position: "absolute", top: 8, right: 8, color: "#6366f1", fontSize: 13 }}
-                />
-              )}
-              <FileTextOutlined style={{ fontSize: 20, color: isActive ? "#a5b4fc" : "rgba(255,255,255,0.4)" }} />
-              <AntTooltip title={label}>
-                <Text
-                  style={{
-                    color: isActive ? "#fff" : "rgba(255,255,255,0.75)",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    marginTop: 4,
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    maxWidth: 180,
-                    display: "block",
-                  }}
-                >
-                  {label}
-                </Text>
-              </AntTooltip>
-              <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
-                <CalendarOutlined style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }} />
-                <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>{period}</Text>
-              </div>
-              <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                <Tag
-                  color="purple"
-                  style={{ fontSize: 10, padding: "0 6px", lineHeight: "18px", borderRadius: 6, margin: 0 }}
-                >
-                  {s.account_id}
-                </Tag>
-                <Tag
-                  color="cyan"
-                  style={{ fontSize: 10, padding: "0 6px", lineHeight: "18px", borderRadius: 6, margin: 0 }}
-                >
-                  {s.trade_count} trades
-                </Tag>
-              </div>
-            </div>
-          );
-        })}
+// Scrolling ticker marquee
+const TickerMarquee = ({ tickers }: { tickers: string[] }) => {
+  if (!tickers.length) return null;
+  const unique = Array.from(new Set(tickers)).filter(Boolean);
+  const doubled = [...unique, ...unique]; // duplicate for seamless loop
+  return (
+    <div style={{
+      overflow: "hidden",
+      background: "rgba(99,102,241,0.08)",
+      border: "1px solid rgba(99,102,241,0.2)",
+      borderRadius: 10,
+      padding: "8px 0",
+      marginBottom: 16,
+      position: "relative",
+    }}>
+      <div style={{
+        display: "flex",
+        gap: 32,
+        animation: "marquee 20s linear infinite",
+        whiteSpace: "nowrap",
+        width: "max-content",
+      }}>
+        {doubled.map((t, i) => (
+          <span key={i} style={{
+            color: "#6366f1",
+            fontWeight: 800,
+            fontSize: 14,
+            letterSpacing: 1,
+            padding: "2px 12px",
+            background: "rgba(99,102,241,0.1)",
+            borderRadius: 6,
+            border: "1px solid rgba(99,102,241,0.25)",
+          }}>
+            {t}
+          </span>
+        ))}
       </div>
     </div>
   );
-}
+};
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const [taxRate, setTaxRate] = useState(15);
-  const [statements, setStatements] = useState<Statement[]>([]);
-  const [statementsLoading, setStatementsLoading] = useState(true);
-  const [posPage, setPosPage] = useState(1);
-  const [posPageSize, setPosPageSize] = useState(10);
-  const [momPage, setMomPage] = useState(1);
-  const [momPageSize, setMomPageSize] = useState(10);
-  const { selectedAccount, selectedStatementId, setSelectedStatementId, setSelectedAccount, summary, setSummary, monthlySummaries, setMonthlySummaries, alerts, setAlerts, tickerPnL, setTickerPnL, strategyPnL, setStrategyPnL, positions, setPositions, totalPositions, setTotalPositions, isLoading, setLoading } = useDashboard();
+  const {
+    selectedAccount,
+    selectedStatementId,
+    summary,
+    setSummary,
+    monthlySummaries,
+    setMonthlySummaries,
+    positions,
+    setPositions,
+    isLoading,
+    setLoading
+  } = useDashboard();
 
-  // Load statements list for the selector
-  useEffect(() => {
-    statementsApi.list()
-      .then((res) => setStatements(res.data.statements || []))
-      .catch(() => {})
-      .finally(() => setStatementsLoading(false));
-  }, []);
+  const [dailySummaries, setDailySummaries] = React.useState<any[]>([]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [sumRes, momRes, alertRes, tickerRes, stratRes, posRes] = await Promise.all([
+      const [sumRes, momRes, posRes, dailyRes] = await Promise.all([
         dashboardApi.summary({ accountId: selectedAccount, statementId: selectedStatementId }),
         dashboardApi.mom({ accountId: selectedAccount, statementId: selectedStatementId }),
-        dashboardApi.alerts({ accountId: selectedAccount, statementId: selectedStatementId }),
-        dashboardApi.tickerPnl({ accountId: selectedAccount, statementId: selectedStatementId }),
-        dashboardApi.strategyPnl({ accountId: selectedAccount, statementId: selectedStatementId }),
-        dashboardApi.positions({ accountId: selectedAccount, statementId: selectedStatementId, page: posPage, per_page: posPageSize }),
+        dashboardApi.positions({ accountId: selectedAccount, statementId: selectedStatementId, page: 1, per_page: 200 }),
+        dashboardApi.daily({ accountId: selectedAccount, statementId: selectedStatementId }),
       ]);
-      setSummary(sumRes.data.summary);
-      setMonthlySummaries(momRes.data.mom);
-      setAlerts(alertRes.data.alerts);
-      setTickerPnL(tickerRes.data.ticker_pnl);
-      setStrategyPnL(stratRes.data.strategy_pnl);
-      setPositions(posRes.data.positions || []);
-      setTotalPositions(posRes.data.total || 0);
-    } catch (e) { /* no data yet */ }
-    setLoading(false);
-  }, [selectedAccount, selectedStatementId]);
+      setSummary(sumRes.data?.summary || {});
+      setMonthlySummaries(momRes.data?.mom || []);
+      setPositions(posRes.data?.positions || []);
+      setDailySummaries(dailyRes.data?.daily || []);
+    } catch (e) {
+      console.error("Dashboard Load Error:", e);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedAccount, selectedStatementId, setSummary, setMonthlySummaries, setPositions, setLoading]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Reset to first page when filters change
-  useEffect(() => {
-    setPosPage(1);
-  }, [selectedAccount, selectedStatementId]);
-
-  const momChartData = monthlySummaries.map((m) => ({
-    month: dayjs(m.month_year).format("MMM YY"),
-    premium: m.premium_collected,
-    fees: m.total_fees,
+  const momChartData = (monthlySummaries || []).map((item: any) => ({
+    month: item?.month_year ? dayjs(item.month_year).format("MMM YY") : "—",
+    displayPremium: Number(item?.premium_collected || 0)
   }));
 
-  const strategyData = strategyPnL.map((s) => ({ name: s.strategy, value: Math.abs(s.pnl) }));
-  const topTickers = tickerPnL.slice(0, 8);
+  const tickerList = (positions || []).map((p: any) => p.ticker).filter(Boolean);
 
-  if (isLoading) {
-    return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh" }}><Spin size="large" /></div>;
+  if (isLoading) return (
+    <div style={{ display: "flex", justifyContent: "center", paddingTop: 100 }}>
+      <Spin size="large" tip="Loading Dashboard..." />
+    </div>
+  );
+
+  const isEmpty = !isLoading && !summary?.account_id && (!positions || positions.length === 0);
+
+  if (isEmpty) {
+    return (
+      <div style={{ padding: "16px" }}>
+        <Title level={3} style={{ color: "#fff", margin: "0 0 24px" }}>Dashboard 👋</Title>
+        <Card style={{ ...cardStyle, textAlign: "center", padding: "60px 20px" }}>
+          <Empty
+            image={null}
+            description={
+              <>
+                <UploadOutlined style={{ fontSize: 64, color: "rgba(99,102,241,0.5)", marginBottom: 16 }} />
+                <br />
+                <Text style={{ color: "#fff", fontSize: 18, fontWeight: 600, display: "block", marginBottom: 8 }}>No Statements Uploaded</Text>
+                <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 14 }}>Upload your ThinkorSwim statement to view insights and track premium.</Text>
+              </>
+            }
+          >
+            <Button
+              type="primary"
+              size="large"
+              icon={<UploadOutlined />}
+              onClick={() => router.push("/statements")}
+              style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)", border: "none", marginTop: 24, borderRadius: 10, fontWeight: 600 }}
+            >
+              Upload Statement Now
+            </Button>
+          </Empty>
+        </Card>
+      </div>
+    );
   }
 
+  const posColumns = [
+    {
+      title: "Ticker",
+      dataIndex: "ticker",
+      key: "ticker",
+      render: (t: string) => (
+        <Text style={{ color: "#6366f1", fontWeight: 800, fontSize: 14, letterSpacing: 0.5 }}>{t || "—"}</Text>
+      ),
+    },
+    {
+      title: "Expiry",
+      dataIndex: "expiration_date",
+      key: "expiration_date",
+      render: (d: string) => (
+        <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 13 }}>
+          {d ? dayjs(d).format("MMM D, YYYY") : "—"}
+        </Text>
+      ),
+    },
+    {
+      title: "Type",
+      dataIndex: "option_type",
+      key: "option_type",
+      render: (t: string) => (
+        <Tag color={t === "PUT" ? "red" : t === "CALL" ? "green" : "blue"}>{t || "—"}</Tag>
+      ),
+    },
+    {
+      title: "Contracts",
+      dataIndex: "contracts",
+      key: "contracts",
+      render: (c: number) => <Text style={{ color: "rgba(255,255,255,0.7)" }}>{c ?? "—"}</Text>,
+    },
+    {
+      title: "Premium",
+      dataIndex: "premium_per_contract",
+      key: "premium_per_contract",
+      render: (v: number) => (
+        <Text style={{ color: "#22d3ee", fontWeight: 700 }}>
+          {v != null ? `$${Number(v).toFixed(2)}` : "—"}
+        </Text>
+      ),
+    },
+    {
+      title: "Tax (15%)",
+      key: "tax",
+      render: (_: any, r: any) => {
+        const tax = r.contracts && r.premium_per_contract
+          ? Math.abs(r.contracts * r.premium_per_contract * 100) * 0.15
+          : 0;
+        return <Text style={{ color: "#f59e0b", fontWeight: 600 }}>${tax.toFixed(2)}</Text>;
+      },
+    },
+    {
+      title: "Severity",
+      key: "severity",
+      dataIndex: "expiration_date",
+      render: (d: string) => <SeverityBadge expirationDate={d} />,
+    },
+  ];
+
   return (
-    <div>
+    <div className="dashboard-page">
       {/* Header */}
-      <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div>
-          <Title level={3} style={{ color: "#fff", margin: 0, fontWeight: 800 }}>
-            Welcome back, {user?.full_name?.split(" ")[0]} 👋
-          </Title>
-          {summary?.period_start && (
-            <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 13 }}>
-              Period: {dayjs(summary.period_start).format("MMM D")} – {dayjs(summary.period_end).format("MMM D, YYYY")} · Account: {summary.account_id}
-            </Text>
-          )}
-        </div>
+      <div className="dashboard-header">
+        <Title level={3} style={{ color: "#fff", margin: 0 }}>Dashboard 👋</Title>
+        <Button
+          type="primary"
+          icon={<UploadOutlined />}
+          onClick={() => router.push("/statements")}
+          style={{ background: "rgba(99,102,241,0.1)", borderColor: "rgba(99,102,241,0.3)", color: "#6366f1", fontWeight: 600, borderRadius: 8 }}
+        >
+          Upload Statement
+        </Button>
       </div>
 
-      {/* Statement Selector */}
-      {!statementsLoading && (
-        <StatementSelectorBar
-          statements={statements}
-          selectedId={selectedStatementId}
-          onSelect={(id) => {
-            setSelectedStatementId(id);
-            setSelectedAccount(null);
+      {/* Stat Cards — xs:1col sm:2col xl:4col */}
+      <Row gutter={[12, 12]} style={{ marginBottom: 20 }}>
+        <Col xs={24} sm={12} xl={6}>
+          <StatCard
+            title="Total Buying Power"
+            value={Number(summary?.buying_power_total ?? 0) > 0
+              ? Number(summary?.buying_power_total).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+              : "Not Available"}
+            prefix={Number(summary?.buying_power_total ?? 0) > 0 ? "$" : ""}
+            color="#a78bfa"
+            icon={<ThunderboltOutlined />}
+          />
+        </Col>
+        <Col xs={24} sm={12} xl={6}>
+          <StatCard
+            title="Remaining Buying Power"
+            value={Number(summary?.buying_power_remaining ?? 0) > 0
+              ? Number(summary?.buying_power_remaining).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+              : "Not Available"}
+            prefix={Number(summary?.buying_power_remaining ?? 0) > 0 ? "$" : ""}
+            color="#22d3ee"
+            icon={<AppstoreOutlined />}
+          />
+        </Col>
+        <Col xs={24} sm={12} xl={6}>
+          <StatCard title="Authority Premium" value={summary?.premium_collected || 0} prefix="$" color="#10b981" icon={<ThunderboltOutlined />} />
+        </Col>
+        <Col xs={24} sm={12} xl={6}>
+          <StatCard title="Tickers Traded" value={summary?.tickers_traded || 0} color="#6366f1" icon={<FileTextOutlined />} />
+        </Col>
+      </Row>
+
+      {/* Chart */}
+      <Card
+        title={<span style={{ color: "#fff", fontWeight: 600 }}>Monthly Premium Performance (By Expiry)</span>}
+        style={{ ...cardStyle, marginBottom: 24 }}
+      >
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={momChartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+            <XAxis dataKey="month" tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }} axisLine={false} />
+            <YAxis tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }} axisLine={false} tickFormatter={(v) => `$${v.toLocaleString()}`} />
+            <Tooltip
+              cursor={{ fill: "rgba(255,255,255,0.05)" }}
+              contentStyle={{ background: "#1a1a2e", border: "1px solid #333", borderRadius: "12px", color: "#fff" }}
+              formatter={(value: number) => [`$${value.toLocaleString()}`, "Premium"]}
+            />
+            <Bar dataKey="displayPremium" name="Premium" fill="#6366f1" radius={[6, 6, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
+
+      {/* Open Positions */}
+      <div style={{ marginBottom: 12 }}>
+        <Title level={4} style={{ color: "#fff", margin: "0 0 4px" }}>📊 Open Positions</Title>
+        <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 13 }}>
+          Severity based on days remaining to expiry &nbsp;•&nbsp;
+          <span style={{ color: "#f43f5e" }}>≤10 days</span> &nbsp;|&nbsp;
+          <span style={{ color: "#f59e0b" }}>≤20 days</span> &nbsp;|&nbsp;
+          <span style={{ color: "#10b981" }}>&gt;20 days</span>
+        </Text>
+      </div>
+
+      {/* Ticker Marquee */}
+      <TickerMarquee tickers={tickerList} />
+
+      <Card style={{ ...cardStyle, marginBottom: 24 }} styles={{ body: { padding: 0 } }}>
+        <Table
+          dataSource={positions || []}
+          rowKey="trade_id"
+          pagination={{ pageSize: 10, showSizeChanger: false }}
+          className="custom-table flex-table"
+          columns={posColumns}
+          scroll={{ x: "max-content" }}
+          locale={{
+            emptyText: (
+              <Empty description={<span style={{ color: "rgba(255,255,255,0.4)" }}>No positions found</span>} />
+            ),
           }}
-          onUpload={() => router.push("/statements")}
+          rowClassName={(r: any) => {
+            const daysLeft = r.expiration_date
+              ? dayjs(r.expiration_date).diff(dayjs().startOf("day"), "day")
+              : 999;
+            return daysLeft <= 10 ? "row-high-risk" : daysLeft <= 20 ? "row-med-risk" : "";
+          }}
         />
-      )}
+      </Card>
 
-      {!summary || Object.keys(summary).length === 0 ? (
-        <Card style={cardStyle}>
-          {statements.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "40px 24px" }}>
-              <FileTextOutlined style={{ fontSize: 56, color: "rgba(99,102,241,0.35)", marginBottom: 16 }} />
-              <div>
-                <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 16, display: "block", marginBottom: 8 }}>
-                  No statements uploaded yet
+      {/* Monthly Breakdown */}
+      <Title level={4} style={{ color: "#fff", marginBottom: 16 }}>📅 Monthly Premium Breakdown (By Expiry Month)</Title>
+      <Card style={{ ...cardStyle, marginBottom: 24 }} styles={{ body: { padding: 0 } }}>
+        <Table
+          dataSource={monthlySummaries || []}
+          rowKey={(record) => record.month_year || Math.random()}
+          pagination={false}
+          className="custom-table"
+          columns={[
+            {
+              title: "EXPIRY MONTH",
+              dataIndex: "month_year",
+              render: (v) => <Text style={{ color: "#fff", fontWeight: 600 }}>{dayjs(v).format("MMMM YYYY")}</Text>,
+            },
+            {
+              title: "PREMIUM COLLECTED",
+              dataIndex: "premium_collected",
+              render: (v) => (
+                <Text style={{ color: "#10b981", fontWeight: 700 }}>
+                  ${Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </Text>
-                <Text style={{ color: "rgba(255,255,255,0.35)", fontSize: 13, display: "block", marginBottom: 20 }}>
-                  Upload a ThinkorSwim CSV statement to start analysing your portfolio
-                </Text>
-                <Button
-                  type="primary"
-                  icon={<UploadOutlined />}
-                  onClick={() => router.push("/statements")}
-                  style={{
-                    background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-                    border: "none",
-                    height: 42,
-                    padding: "0 28px",
-                    borderRadius: 10,
-                    fontWeight: 600,
-                    boxShadow: "0 4px 15px rgba(99,102,241,0.3)",
-                  }}
-                >
-                  Upload Statement
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <Empty description={
-              <span style={{ color: "rgba(255,255,255,0.5)" }}>
-                No data available for the selected statement. Try choosing another above.
-              </span>
-            } />
-          )}
-        </Card>
-      ) : (
-        <div>
-          {/* Section 1: Overall Summary */}
-          <div style={{ marginBottom: 28 }}>
-            <Title level={4} style={{ color: "#fff", marginBottom: 16, fontWeight: 700 }}>Overall Summary</Title>
-            <Card style={cardStyle} bodyStyle={{ padding: "24px" }}>
-              <Row gutter={[32, 24]} align="middle">
-                <Col xs={24} sm={12} md={4}>
-                  <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, display: "block", marginBottom: 4 }}>OPENING CASH</Text>
-                  <Text style={{ color: "#fff", fontSize: 20, fontWeight: 700 }}>${summary.opening_cash_balance?.toLocaleString() || "—"}</Text>
-                </Col>
-                <Col xs={24} sm={12} md={5}>
-                  <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, display: "block", marginBottom: 4 }}>TOTAL BUYING POWER</Text>
-                  <Text style={{ color: "#fff", fontSize: 20, fontWeight: 700 }}>${summary.buying_power_total?.toLocaleString() || "—"}</Text>
-                </Col>
-                <Col xs={24} sm={12} md={5}>
-                  <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, display: "block", marginBottom: 4 }}>REMAINING BP</Text>
-                  <Text style={{ color: "#22d3ee", fontSize: 20, fontWeight: 700 }}>${summary.buying_power_remaining?.toLocaleString() || "—"}</Text>
-                </Col>
-              </Row>
-            </Card>
-          </div>
-
-          {/* KPI Cards */}
-          <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-            <Col xs={24} sm={12} xl={5}>
-              <StatCard title="Cash Balance" value={summary.cash_balance} prefix="$" delta={summary.balance_delta} color="#6366f1" icon={<DollarOutlined />} />
-            </Col>
-            <Col xs={24} sm={12} xl={5}>
-              <StatCard title="Premium Collected" value={summary.premium_collected} prefix="$" color="#22d3ee" icon={<ThunderboltOutlined />} />
-            </Col>
-            <Col xs={24} sm={12} xl={5}>
-              <StatCard
-                title="Buying Power"
-                value={summary.buying_power_remaining ?? summary.buying_power_total ?? null}
-                prefix="$"
-                color="#a78bfa"
-                icon={<ThunderboltOutlined />}
-              />
-            </Col>
-            <Col xs={24} sm={12} xl={5}>
-              <StatCard title="Fee Drag" value={summary.fee_pct_of_premium} suffix="% of premium" color="#f59e0b" icon={<WarningOutlined />} />
-            </Col>
-          </Row>
-
-          {/* Charts Row */}
-          <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-            {/* MoM Chart */}
-            <Col xs={24}>
-              <Card title={<span style={{ color: "#fff", fontWeight: 700 }}>Month-over-Month P&L</span>} style={cardStyle} bodyStyle={{ padding: "16px 8px" }}>
-                {momChartData.length === 0 ? <Empty description={<span style={{ color: "rgba(255,255,255,0.4)" }}>No monthly data</span>} /> : (
-                  <ResponsiveContainer width="100%" height={260}>
-                    <BarChart data={momChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                      <XAxis dataKey="month" tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} />
-                      <Tooltip contentStyle={{ background: "#1a1a2e", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 10, color: "#fff" }} formatter={(v: any) => [`$${Number(v).toFixed(2)}`]} />
-                      <Legend wrapperStyle={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }} />
-                      <Bar dataKey="premium" name="Premium Collected" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </Card>
-            </Col>
-          </Row>
-
-          {/* Ticker PnL + Alerts */}
-          <Row gutter={[16, 16]}>
-            <Col xs={24} xl={13}>
-              <Card title={<span style={{ color: "#fff", fontWeight: 700 }}>Top Tickers by P&L</span>} style={cardStyle} bodyStyle={{ padding: "16px 8px" }}>
-                {topTickers.length === 0 ? <Empty description={<span style={{ color: "rgba(255,255,255,0.4)" }}>No data</span>} /> : (
-                  <ResponsiveContainer width="100%" height={240}>
-                    <BarChart data={topTickers} layout="vertical" margin={{ top: 0, right: 20, left: 20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
-                      <XAxis type="number" tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} />
-                      <YAxis type="category" dataKey="ticker" tick={{ fill: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: 600 }} axisLine={false} tickLine={false} />
-                      <Tooltip contentStyle={{ background: "#1a1a2e", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 10, color: "#fff" }} formatter={(v: any) => [`$${Number(v).toFixed(2)}`]} />
-                      <Bar dataKey="pnl" name="P&L" radius={[0, 4, 4, 0]}
-                        fill="#6366f1"
-                        label={false}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </Card>
-            </Col>
-
-            <Col xs={24} xl={11}>
-              <Card title={<span style={{ color: "#fff", fontWeight: 700 }}>Risk Alerts <Badge count={alerts.length} style={{ background: "#f43f5e", marginLeft: 8 }} /></span>} style={cardStyle} bodyStyle={{ padding: "12px 16px", maxHeight: 280, overflowY: "auto" }}>
-                {alerts.length === 0 ? (
-                  <Empty description={<span style={{ color: "rgba(255,255,255,0.4)" }}>No alerts — portfolio looks healthy!</span>} />
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {alerts.slice(0, 6).map((alert, i) => (
-                      <div key={i} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "10px 14px", borderLeft: `3px solid ${severityColor[alert.severity]}` }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                          <Text style={{ color: "#fff", fontWeight: 600, fontSize: 13 }}>{alert.title}</Text>
-                          <Tag color={alert.severity === "High" ? "red" : alert.severity === "Medium" ? "orange" : "green"} style={{ margin: 0, fontSize: 10 }}>{alert.severity}</Tag>
-                        </div>
-                        <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, lineHeight: 1.5 }}>{alert.description}</Text>
-                      </div>
-                    ))}
+              ),
+            },
+            {
+              title: "ALLOCATION",
+              render: (_, record) => {
+                const max = Math.max(...(monthlySummaries || []).map((m: any) => m.premium_collected || 0), 1);
+                const pct = ((record.premium_collected || 0) / max) * 100;
+                return (
+                  <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 4, height: 6, overflow: "hidden" }}>
+                    <div style={{ width: `${Math.round(pct)}%`, height: "100%", background: "#10b981", borderRadius: 4, transition: "width 0.4s ease" }} />
                   </div>
-                )}
-              </Card>
-            </Col>
-          </Row>
+                );
+              },
+            },
+          ]}
+        />
+      </Card>
 
-          {/* Section 2: Month over Month Performance */}
-          <div style={{ marginTop: 24 }}>
-            <Title level={4} style={{ color: "#fff", marginBottom: 16, fontWeight: 700 }}>Month-over-month Performance</Title>
-            <Card style={cardStyle} styles={{ body: { padding: 0 } }}>
-              <Table 
-                dataSource={monthlySummaries}
-                pagination={{
-                  current: momPage,
-                  pageSize: momPageSize,
-                  showSizeChanger: true,
-                  pageSizeOptions: ["10", "20", "50", "100"],
-                  showTotal: (total) => `Total ${total} months`,
-                  style: { padding: "12px 24px", borderTop: "1px solid rgba(255,255,255,0.06)" }
-                }}
-                onChange={(pagination) => {
-                  setMomPage(pagination.current || 1);
-                  setMomPageSize(pagination.pageSize || 10);
-                }}
-                rowKey="summary_id"
-                columns={[
-                  {
-                    title: "EXP MONTH",
-                    dataIndex: "month_year",
-                    render: (val) => <Text style={{ color: "#fff", fontWeight: 600 }}>{dayjs(val).format("MMM 'YY")}</Text>
-                  },
-                  {
-                    title: "PLACED",
-                    dataIndex: "total_options_placed",
-                    render: (val) => <Text style={{ color: "rgba(255,255,255,0.8)" }}>{val}</Text>
-                  },
-                  {
-                    title: "PREMIUM",
-                    dataIndex: "premium_collected",
-                    render: (val) => <Text style={{ color: "#10b981", fontWeight: 700 }}>${val?.toLocaleString()}</Text>
-                  },
-                  {
-                    title: "BAR (VS BEST)",
-                    render: (_, record) => {
-                      const maxPremium = Math.max(...monthlySummaries.map(m => m.premium_collected), 1);
-                      const pct = (record.premium_collected / maxPremium) * 100;
-                      return (
-                        <div style={{ width: 120 }}>
-                          <Progress percent={pct} showInfo={false} strokeColor="#10b981" trailColor="rgba(255,255,255,0.05)" strokeWidth={8} />
-                        </div>
-                      );
-                    }
-                  },
-                  {
-                    title: "BTC / LOSSES",
-                    dataIndex: "losses_realized",
-                    render: (val) => <Text style={{ color: val < 0 ? "#f43f5e" : "rgba(255,255,255,0.45)" }}>{val < 0 ? `-$${Math.abs(val).toLocaleString()}` : "—"}</Text>
-                  },
-                  {
-                    title: "ASSIGNMENTS",
-                    dataIndex: "assignment_costs",
-                    render: (val) => <Text style={{ color: val < 0 ? "#f43f5e" : "rgba(255,255,255,0.45)" }}>{val < 0 ? `-$${Math.abs(val).toLocaleString()}` : "—"}</Text>
-                  },
-                  {
-                    title: "COMMISSION",
-                    dataIndex: "commissions_paid",
-                    render: (val) => <Text style={{ color: "rgba(255,255,255,0.45)" }}>${val?.toLocaleString()}</Text>
-                  },
-                  {
-                    title: "STATUS",
-                    render: (_, record) => {
-                      const isClosed = dayjs(record.month_year).isBefore(dayjs(), "month");
-                      return <Tag color={isClosed ? "default" : "processing"} style={{ borderRadius: 6, textTransform: "uppercase", fontSize: 10 }}>{isClosed ? "Closed" : "Open"}</Tag>
-                    }
-                  }
-                ]}
-                className="custom-table flex-table"
-                style={{ background: "transparent" }}
-              />
-            </Card>
-          </div>
-
-          {/* ─── Section 3: Open Positions ─────────────────────────────────── */}
-          <div style={{ marginTop: 28 }}>
-            <Title level={4} style={{ color: "#fff", marginBottom: 16, fontWeight: 700 }}>📊 Open Positions</Title>
-            {positions.length > 0 && (
-              <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
-                {[
-                  { label: "Total Positions", value: positions.length, color: "#6366f1" },
-                  { label: "High Risk (DTE < 7)", value: positions.filter((p) => p.risk_level === "High").length, color: "#f43f5e" },
-                  { label: "Medium Risk (DTE ≤ 21)", value: positions.filter((p) => p.risk_level === "Medium").length, color: "#f59e0b" },
-                ].map((item) => (
-                  <div key={item.label} style={{ background: "rgba(255,255,255,0.04)", borderRadius: 12, padding: "12px 20px", border: "1px solid rgba(255,255,255,0.08)" }}>
-                    <div style={{ color: item.color, fontSize: 24, fontWeight: 800 }}>{item.value}</div>
-                    <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginTop: 2 }}>{item.label}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <Card style={cardStyle} styles={{ body: { padding: 0 } }}>
-              <Table
-                dataSource={positions}
-                rowKey="trade_id"
-                pagination={{ 
-                  current: posPage,
-                  pageSize: posPageSize,
-                  total: totalPositions,
-                  showSizeChanger: true,
-                  pageSizeOptions: ["10", "20", "50", "100"],
-                  showTotal: (total) => `Total ${total} positions`,
-                  style: { padding: "16px 24px", margin: 0, borderTop: "1px solid rgba(255,255,255,0.06)" } 
-                }}
-                onChange={(pagination) => {
-                  setPosPage(pagination.current || 1);
-                  setPosPageSize(pagination.pageSize || 10);
-                }}
-                scroll={{ x: "max-content" }}
-                locale={{ emptyText: <Empty description={<span style={{ color: "rgba(255,255,255,0.4)" }}>No open positions found.</span>} /> }}
-                className="custom-table flex-table"
-                style={{ background: "transparent" }}
-                columns={[
-                  { title: "Date Placed", dataIndex: "trade_date", key: "trade_date", render: (d: string) => <Text style={{ color: "rgba(255,255,255,0.7)" }}>{d ? dayjs(d).format("MMM D, YYYY") : "—"}</Text>, sorter: (a: Trade, b: Trade) => (a.trade_date || "").localeCompare(b.trade_date || ""), defaultSortOrder: "descend" as any },
-                  { title: "Ticker", dataIndex: "ticker", key: "ticker", render: (t: string) => <Text style={{ color: "#6366f1", fontWeight: 700, fontSize: 15 }}>{t}</Text>, sorter: (a: Trade, b: Trade) => a.ticker.localeCompare(b.ticker) },
-                  { title: "Strategy", dataIndex: "strategy", key: "strategy", render: (s: string) => <Tag color="purple" style={{ fontWeight: 500 }}>{s || "Other"}</Tag> },
-                  { title: "Type", dataIndex: "option_type", key: "option_type", render: (t: string) => <Tag color={t === "PUT" ? "red" : t === "CALL" ? "green" : "blue"}>{t || "—"}</Tag> },
-                  { title: "Strike", key: "strikes", render: (_: any, r: Trade) => <Text style={{ color: "rgba(255,255,255,0.8)", fontFamily: "monospace" }}>{r.strike_short ?? "—"}{r.strike_long ? ` / ${r.strike_long}` : ""}</Text> },
-                  { title: "Expiry", dataIndex: "expiration_date", key: "expiration_date", render: (d: string) => <Text style={{ color: "rgba(255,255,255,0.7)" }}>{d ? dayjs(d).format("MMM D, YYYY") : "—"}</Text>, sorter: (a: Trade, b: Trade) => (a.expiration_date || "").localeCompare(b.expiration_date || "") },
-                  { title: "DTE", dataIndex: "dte", key: "dte", render: (d: number) => <Tag color={d < 7 ? "red" : d <= 21 ? "orange" : "green"} style={{ fontWeight: 700 }}>{d ?? "—"} days</Tag>, sorter: (a: Trade, b: Trade) => (a.dte ?? 999) - (b.dte ?? 999) },
-                  { title: "Contracts", dataIndex: "contracts", key: "contracts", render: (c: number) => <Text style={{ color: "rgba(255,255,255,0.7)" }}>{c ?? "—"}</Text> },
-                  { title: "Premium/Contract", dataIndex: "premium_per_contract", key: "premium_per_contract", render: (v: number) => <Text style={{ color: "#22d3ee", fontWeight: 600 }}>{v != null ? `$${v.toFixed(2)}` : "—"}</Text> },
-                  { title: "Tax (15%)", key: "tax", render: (_: any, r: Trade) => {
-                    const ppc = r.premium_per_contract;
-                    const contracts = r.contracts;
-                    if (ppc == null || contracts == null) return <Text style={{ color: "rgba(255,255,255,0.4)" }}>—</Text>;
-                    const totalPremium = ppc * Math.abs(contracts) * 100;
-                    const tax = totalPremium * 0.15;
-                    return <Text style={{ color: "#f59e0b", fontWeight: 600 }}>${tax.toFixed(2)}</Text>;
-                  }},
-                  { title: "Risk", dataIndex: "risk_level", key: "risk_level", render: (r: string) => {
-                    const riskColors: Record<string, string> = { High: "#f43f5e", Medium: "#f59e0b", Low: "#10b981" };
-                    const riskBg: Record<string, string> = { High: "rgba(244,63,94,0.12)", Medium: "rgba(245,158,11,0.12)", Low: "rgba(16,185,129,0.12)" };
+      {/* Daily Breakdown */}
+      {dailySummaries.length > 0 && (
+        <>
+          <Title level={4} style={{ color: "#fff", marginBottom: 16 }}>📆 Daily Premium Breakdown (By Exact Expiry Date)</Title>
+          <Card style={cardStyle} styles={{ body: { padding: 0 } }}>
+            <Table
+              dataSource={dailySummaries}
+              rowKey="expiry_date"
+              pagination={{ pageSize: 10, showSizeChanger: false }}
+              className="custom-table"
+              columns={[
+                {
+                  title: "EXPIRY DATE",
+                  dataIndex: "expiry_date",
+                  render: (v) => <Text style={{ color: "#fff", fontWeight: 600 }}>{dayjs(v).format("MMM DD, YYYY")}</Text>,
+                },
+                {
+                  title: "PREMIUM COLLECTED",
+                  dataIndex: "premium_collected",
+                  render: (v) => (
+                    <Text style={{ color: "#22d3ee", fontWeight: 700 }}>
+                      ${Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </Text>
+                  ),
+                  sorter: (a: any, b: any) => a.premium_collected - b.premium_collected,
+                },
+                {
+                  title: "ALLOCATION",
+                  render: (_: any, record: any) => {
+                    const max = Math.max(...dailySummaries.map((d) => d.premium_collected || 0), 1);
+                    const pct = ((record.premium_collected || 0) / max) * 100;
                     return (
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: riskBg[r] || "transparent", borderRadius: 8, padding: "3px 10px" }}>
-                        {r === "High" ? <WarningOutlined style={{ color: riskColors[r] }} /> : r === "Medium" ? <ExclamationCircleOutlined style={{ color: riskColors[r] }} /> : <CheckCircleOutlined style={{ color: riskColors[r] }} />}
-                        <Text style={{ color: riskColors[r] || "#fff", fontWeight: 700, fontSize: 12 }}>{r}</Text>
+                      <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 4, height: 6, overflow: "hidden" }}>
+                        <div style={{ width: `${Math.round(pct)}%`, height: "100%", background: "#22d3ee", borderRadius: 4, transition: "width 0.4s ease" }} />
                       </div>
                     );
-                  }, filters: [{ text: "High", value: "High" }, { text: "Medium", value: "Medium" }, { text: "Low", value: "Low" }], onFilter: (v: any, r: Trade) => r.risk_level === v },
-                ]}
-              />
-            </Card>
-          </div>
-
-          {/* ─── Section 4: Analytics ──────────────────────────────────────── */}
-          <div style={{ marginTop: 28 }}>
-            <Title level={4} style={{ color: "#fff", marginBottom: 16, fontWeight: 700 }}>📈 Analytics</Title>
-
-            {/* Analytics KPIs */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-              {(() => {
-                const totalPremium = monthlySummaries.reduce((s, m) => s + m.premium_collected, 0);
-                const totalFees = monthlySummaries.reduce((s, m) => s + m.total_fees, 0);
-                const totalFills = monthlySummaries.reduce((s, m) => s + m.total_fills, 0);
-                const winMonths = monthlySummaries.filter((m) => m.premium_collected > 0).length;
-                const winRate = monthlySummaries.length > 0 ? ((winMonths / monthlySummaries.length) * 100).toFixed(1) : "—";
-                return [
-                  { title: "Total Premium", value: totalPremium, prefix: "$", color: "#6366f1" },
-                  { title: "Total Fees", value: totalFees, prefix: "$", color: "#f59e0b" },
-                  { title: "Win Rate", value: winRate, suffix: "%", color: "#22d3ee" },
-                  { title: "Total Fills", value: totalFills, color: "#a78bfa" },
-                ].map((stat) => (
-                  <Col key={stat.title} xs={12} sm={8} lg={4} xl={4}>
-                    <Card style={{ ...cardStyle, textAlign: "center" }} bodyStyle={{ padding: "16px 12px" }}>
-                      <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>{stat.title}</div>
-                      <div style={{ color: stat.color, fontSize: 20, fontWeight: 800 }}>
-                        {stat.prefix}{typeof stat.value === "number" ? stat.value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : stat.value}{stat.suffix}
-                      </div>
-                    </Card>
-                  </Col>
-                ));
-              })()}
-            </Row>
-
-            {/* Premium vs Losses + Strategy Breakdown */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-              <Col xs={24} xl={15}>
-                <Card title={<span style={{ color: "#fff", fontWeight: 700 }}>Premium vs Losses (Monthly)</span>} style={cardStyle} bodyStyle={{ padding: "16px 8px" }}>
-                  {momChartData.length === 0 ? <Empty description={<span style={{ color: "rgba(255,255,255,0.4)" }}>No data</span>} /> : (
-                    <ResponsiveContainer width="100%" height={260}>
-                      <BarChart data={momChartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                        <XAxis dataKey="month" tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} />
-                        <Tooltip contentStyle={{ background: "#1a1a2e", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 10, color: "#fff" }} formatter={(v: any) => [`$${Number(v).toFixed(2)}`]} />
-                        <Legend wrapperStyle={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }} />
-                        <Bar dataKey="premium" name="Premium Collected" fill="#10b981" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="fees" name="Fees" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  )}
-                </Card>
-              </Col>
-              <Col xs={24} xl={9}>
-                <Card title={<span style={{ color: "#fff", fontWeight: 700 }}>Strategy Breakdown</span>} style={cardStyle} bodyStyle={{ padding: "16px 8px" }}>
-                  {strategyData.length === 0 ? <Empty description={<span style={{ color: "rgba(255,255,255,0.4)" }}>No data</span>} /> : (
-                    <ResponsiveContainer width="100%" height={260}>
-                      <PieChart>
-                        <Pie data={strategyData} cx="50%" cy="50%" innerRadius={55} outerRadius={90} dataKey="value" paddingAngle={3} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
-                          {strategyData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                        </Pie>
-                        <Tooltip contentStyle={{ background: "#1a1a2e", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 10, color: "#fff" }} formatter={(v: any) => [`$${Number(v).toFixed(2)}`]} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  )}
-                </Card>
-              </Col>
-            </Row>
-
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-              <Col xs={24} xl={10}>
-                <Card title={<span style={{ color: "#fff", fontWeight: 700 }}>Ticker P&L Breakdown</span>} style={cardStyle} bodyStyle={{ padding: 0 }}>
-                  <Table
-                    dataSource={tickerPnL}
-                    columns={[
-                      { title: "Ticker", dataIndex: "ticker", key: "ticker", render: (t: string) => <Text style={{ color: "#6366f1", fontWeight: 700 }}>{t}</Text> },
-                      { title: "P&L", dataIndex: "pnl", key: "pnl", render: (v: number) => <Text style={{ color: v >= 0 ? "#10b981" : "#f43f5e", fontWeight: 700 }}>{v >= 0 ? "+" : ""}${v.toFixed(2)}</Text>, sorter: (a: any, b: any) => a.pnl - b.pnl, defaultSortOrder: "descend" as any },
-                    ]}
-                    rowKey="ticker"
-                    size="small"
-                    pagination={{ pageSize: 8 }}
-                    style={{ background: "transparent" }}
-                    locale={{ emptyText: <Empty description={<span style={{ color: "rgba(255,255,255,0.4)" }}>No data</span>} /> }}
-                  />
-                </Card>
-              </Col>
-            </Row>
-          </div>
-        </div>
+                  },
+                },
+              ]}
+            />
+          </Card>
+        </>
       )}
     </div>
   );

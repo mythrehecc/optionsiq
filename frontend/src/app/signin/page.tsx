@@ -1,6 +1,11 @@
 "use client";
 import React, { useState } from "react";
-import { Form, Input, Button, Typography, Alert, Divider } from "antd";
+import Form from "antd/lib/form";
+import Input from "antd/lib/input";
+import Button from "antd/lib/button";
+import Typography from "antd/lib/typography";
+import Alert from "antd/lib/alert";
+import Divider from "antd/lib/divider";
 import { MailOutlined, LockOutlined, RocketOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";

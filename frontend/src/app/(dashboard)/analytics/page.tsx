@@ -1,6 +1,12 @@
 "use client";
 import React, { useEffect, useCallback, useState } from "react";
-import { Card, Row, Col, Typography, Empty, Spin, Statistic, Table } from "antd";
+import Card from "antd/lib/card";
+import Row from "antd/lib/row";
+import Col from "antd/lib/col";
+import Typography from "antd/lib/typography";
+import Empty from "antd/lib/empty";
+import Spin from "antd/lib/spin";
+import Table from "antd/lib/table";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from "recharts";
 import { useDashboard } from "@/context/DashboardContext";
 import { dashboardApi } from "@/services/api";

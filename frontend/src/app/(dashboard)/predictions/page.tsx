@@ -1,7 +1,23 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { Card, Row, Col, Typography, Spin, Select, Button, Tag, Divider, Empty, Alert } from "antd";
-import { LineChartOutlined, CheckCircleOutlined, WarningOutlined, CloseCircleOutlined, RobotOutlined, AreaChartOutlined, DatabaseOutlined } from "@ant-design/icons";
+import Card from "antd/lib/card";
+import Row from "antd/lib/row";
+import Col from "antd/lib/col";
+import Typography from "antd/lib/typography";
+import Spin from "antd/lib/spin";
+import Select from "antd/lib/select";
+import Button from "antd/lib/button";
+import Tag from "antd/lib/tag";
+import Divider from "antd/lib/divider";
+import Empty from "antd/lib/empty";
+import Alert from "antd/lib/alert";
+import LineChartOutlined from "@ant-design/icons/LineChartOutlined";
+import CheckCircleOutlined from "@ant-design/icons/CheckCircleOutlined";
+import WarningOutlined from "@ant-design/icons/WarningOutlined";
+import CloseCircleOutlined from "@ant-design/icons/CloseCircleOutlined";
+import RobotOutlined from "@ant-design/icons/RobotOutlined";
+import AreaChartOutlined from "@ant-design/icons/AreaChartOutlined";
+import DatabaseOutlined from "@ant-design/icons/DatabaseOutlined";
 import { predictionsApi } from "@/services/api";
 
 const { Title, Text } = Typography;

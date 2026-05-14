@@ -1,8 +1,27 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Card, Table, Button, Typography, Tag, Upload, Modal, message, Popconfirm, Empty, Space, Tooltip, Progress } from "antd";
-import { UploadOutlined, DeleteOutlined, CheckCircleOutlined, ClockCircleOutlined, InboxOutlined, ReloadOutlined, BarChartOutlined } from "@ant-design/icons";
+import Card from "antd/lib/card";
+import Table from "antd/lib/table";
+import Button from "antd/lib/button";
+import Typography from "antd/lib/typography";
+import Tag from "antd/lib/tag";
+import Upload from "antd/lib/upload";
+import Modal from "antd/lib/modal";
+import message from "antd/lib/message";
+import Popconfirm from "antd/lib/popconfirm";
+import Empty from "antd/lib/empty";
+import Space from "antd/lib/space";
+import Tooltip from "antd/lib/tooltip";
+import Spin from "antd/lib/spin";
+
+import UploadOutlined from "@ant-design/icons/UploadOutlined";
+import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
+import CheckCircleOutlined from "@ant-design/icons/CheckCircleOutlined";
+import ClockCircleOutlined from "@ant-design/icons/ClockCircleOutlined";
+import InboxOutlined from "@ant-design/icons/InboxOutlined";
+import ReloadOutlined from "@ant-design/icons/ReloadOutlined";
+import BarChartOutlined from "@ant-design/icons/BarChartOutlined";
 import { useDashboard } from "@/context/DashboardContext";
 import { statementsApi } from "@/services/api";
 import { Statement } from "@/types";
@@ -222,7 +241,8 @@ export default function StatementsPage() {
           {uploading ? (
             <>
               <Text style={{ color: "#6366f1", fontWeight: 600, fontSize: 16 }}>Parsing your statement…</Text>
-              <Progress percent={99} status="active" showInfo={false} strokeColor="#6366f1" style={{ padding: "0 40px", marginTop: 12 }} />
+              <Spin size="small" style={{ marginTop: 8 }} />
+
             </>
           ) : (
             <>

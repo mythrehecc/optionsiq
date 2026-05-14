@@ -152,6 +152,10 @@ export const dashboardApi = {
     apiClient.get("/dashboard/mom", {
       params: { account_id: params?.accountId || undefined, statement_id: params?.statementId || undefined, from: params?.from, to: params?.to },
     }),
+  daily: (params?: { accountId?: string | null; statementId?: string | null }) =>
+    apiClient.get("/dashboard/daily", {
+      params: { account_id: params?.accountId || undefined, statement_id: params?.statementId || undefined },
+    }),
   tickerPnl: (params?: { accountId?: string | null; statementId?: string | null }) =>
     apiClient.get("/dashboard/ticker-pnl", {
       params: { account_id: params?.accountId || undefined, statement_id: params?.statementId || undefined },
